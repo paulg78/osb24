@@ -1,8 +1,9 @@
 const RES_SS = "1kbWyrfRXhRCKi_mPZctLkPxwAnKzyM5uAHXtcYvnhto"
 
-/* onEdit function doesn't work; gets a permission error when triggered; need to use installable trigger
+/* onEdit function doesn't work; gets a permission error when triggered:
 Exception: You do not have permission to call SpreadsheetApp.openById. Required permissions: https://www.googleapis.com/auth/spreadsheets
-    at onEdit(code:21:27), uses a "simple trigger" onEdit event */
+    at onEdit(code:21:27), uses a "simple trigger" onEdit event 
+    need to use installable trigger instead */
 
 /* This function sets the checkin value in the response spreadsheet so they are preserved */
 function updateCheckin(e) {
