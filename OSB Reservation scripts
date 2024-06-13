@@ -11,8 +11,8 @@ function identifyQuestions() {
   })
 }
 
-/* This function needs to be run when there is a change to the school list on the ss */
-/* If we want it to run automatically, need a trigger to run it when there is an edit to the ss */
+/* This function needs to be run when there is a change to the school list on the spreadsheet */
+/* If we want it to run automatically, need a trigger to run it when there is an edit to the spreadsheet */
 function updateSchools() {
   var ws = SpreadsheetApp.getActiveSpreadsheet()
   var options_ws = ws.getSheetByName("Schools")
@@ -28,7 +28,7 @@ function updateSchools() {
 }
 
 /* This function updates the list of available time slots */
-/* there is a trigger to call this function when there is any edit to the ss */
+/* there is a trigger to call this function when there is any edit to the spreadsheet */
 function updateTimeSlots(e) {
   var sheet;
   if (e == null) { /* Called by updateQuota */
