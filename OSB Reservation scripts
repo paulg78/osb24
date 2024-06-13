@@ -1,0 +1,109 @@
+const RESFORM = "1SfYwt1dFT2KnzOM1T1iZHNelfhCPh2Qz0C4s7cU4oko"
+
+/* This function is only used to get the question IDs */
+function identifyQuestions() {
+  var form = FormApp.openById(RESFORM)
+  var questions = form.getItems()
+  questions.forEach(question => {
+    Logger.log(question.getTitle())
+    Logger.log(question.getType())
+    Logger.log(question.getId().toString())
+  })
+}
+
+/* This function needs to be run when there is a change to the school list on the spreadsheet */
+/* If we want it to run automatically, need a trigger to run it when there is an edit to the spreadsheet */
+function updateSchools() {
+  var ws = SpreadsheetApp.getActiveSpreadsheet()
+  var options_ws = ws.getSheetByName("Schools")
+  var optionsArray = options_ws.getRange("A2:A").getValues()
+  /*   Logger.log(optionsArray) */
+  var filteredOptionArray = optionsArray.filter(row => row[0])
+  /*  Logger.log(filteredOptionArray) */
+  var optionsList = filteredOptionArray.map(row => row[0])
+  /*  Logger.log(optionsList) */
+  var form = FormApp.openById(RESFORM)
+  var schoolQuestion = form.getItemById("325120643")
+  schoolQuestion.asListItem().setChoiceValues(optionsList)
+}
+
+/* This function updates the list of available time slots */
+/* there is a trigger to call this function when there is any edit to the spreadsheet */
+function updateTimeSlots(e) {
+  var sheet;
+  if (e == null) { /* Called by updateQuota */
+    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
+  }
+  else { /* triggered by spreadsheet edit */
+    sheet = e.range.getSheet();
+    /* return if not changing Time Slot worksheet */
+    if (sheet.getName() !== 'TimeSlots') {
+      Logger.log("timeslot sheet not changed");
+      return;
+    }
+  }
+  var optionsArray = sheet.getRange("B2:C").getValues()
+  /* Logger.log(optionsArray) */
+  var filteredOptionArray = optionsArray.filter(row => row[1] > 0)
+  /* Logger.log(filteredOptionArray) */
+  var optionsList = filteredOptionArray.map(row => row[0])
+  Logger.log(optionsList)
+  var form = FormApp.openById(RESFORM)
+  var timeSlotQuestion = form.getItemById("2077309311")
+  timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList)
+}
+
+/* This updates the available count and then calls updateTimeSlots to update the list of available time slots */
+/* there is a trigger to call this function when the form is submitted */
+function updateQuota(e) {
+  /* Logger.log(e.namedValues['Time Slot']) */
+  var ts = e.namedValues['Time Slot']
+  var ws = SpreadsheetApp.getActiveSpreadsheet()
+  var options_ws = ws.getSheetByName("TimeSlots")
+  var tf = options_ws.createTextFinder(ts)
+  var slot = tf.findNext()
+  if (slot == null) {
+    Logger.log('time slot not found')
+    /* don't return -- so it will fail and I'll get notification */
+  }
+  var row = slot.getRow()
+  /* Logger.log(row) */
+  var range = options_ws.getRange(row, 3)
+  var cell = range.getCell(1, 1);
+  var avail = cell.getValue();
+  if (avail > 0) {
+    cell.setValue(avail - 1)
+    if (avail == 1) {
+      /* Logger.log("calling updateTimeSlots") */
+      updateTimeSlots()
+    }
+  }
+  /* Logger.log(cell.getValue()); */
+}
+
+/* Form Questions -- logged by identifyQuestions
+Counselor/Liaison First Name
+TEXT
+187723064
+Counselor/Liaison Last Name
+TEXT
+383280843
+School
+LIST
+325120643
+Reservation
+PAGE_BREAK
+1534288597
+Student First Name
+TEXT
+780686565
+Student Last Name
+TEXT
+1474091195
+Student Grade
+LIST
+916278863
+Time Slot
+MULTIPLE_CHOICE
+2077309311
+ */
