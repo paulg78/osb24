@@ -11,8 +11,8 @@ function identifyQuestions() {
   })
 }
 
-/* This function needs to be run when there is a change to the school list on the spreadsheet */
-/* If we want it to run automatically, need a trigger to run it when there is an edit to the spreadsheet */
+/* This function needs to be run when there is a change to the school list on the ss */
+/* If we want it to run automatically, need a trigger to run it when there is an edit to the ss */
 function updateSchools() {
   var ws = SpreadsheetApp.getActiveSpreadsheet()
   var options_ws = ws.getSheetByName("Schools")
@@ -28,7 +28,7 @@ function updateSchools() {
 }
 
 /* This function updates the list of available time slots */
-/* there is a trigger to call this function when there is any edit to the spreadsheet */
+/* there is a trigger to call this function when there is any edit to the ss */
 function updateTimeSlots(e) {
   var sheet;
   if (e == null) { /* Called by updateQuota */
@@ -38,7 +38,7 @@ function updateTimeSlots(e) {
     sheet = e.range.getSheet();
     /* return if not changing Time Slot worksheet */
     if (sheet.getName() !== 'TimeSlots') {
-      Logger.log("timeslot sheet not changed");
+     /*  Logger.log("timeslot sheet not changed"); */
       return;
     }
   }
@@ -79,6 +79,117 @@ function updateQuota(e) {
     }
   }
   /* Logger.log(cell.getValue()); */
+}
+
+/* This function creates 2 worksheets, one for looking up students by time slot and the other for looking up students by name */
+function formatforCheckin() {
+  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
+  var ss = SpreadsheetApp.getActive();
+  var responses_ws = ss.getSheetByName("Form Responses");
+  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
+
+  /* Delete Time Slot and Student Names worksheets if present */
+  if (ss.getSheetByName('By Time Slot') != null) {
+    ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
+    ss.deleteActiveSheet();
+  }
+  if (ss.getSheetByName('By Student Name') != null) {
+    ss.setActiveSheet(ss.getSheetByName('By Student Name'), true);
+    ss.deleteActiveSheet();
+  }
+
+  /* Create By time slot worksheet */
+  ss.setActiveSheet(ss.getSheetByName('Form Responses'), true);
+  ss.insertSheet('By Time Slot');
+
+  /* Copy data from Form Responses worksheet */
+  ss.getRange('\'Form Responses\'!A:J').copyTo(ss.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+  /* Re-arrange columns */
+  ss.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
+  ss.getRange('A:A').moveTo(ss.getRange('K:K'));
+  ss.getRange('J:J').moveTo(ss.getRange('A:A'));
+  ss.getActiveSheet().insertColumnsBefore(2, 5);
+  ss.getRange('N:N').moveTo(ss.getRange('B:B'));
+  ss.getRange('L:L').moveTo(ss.getRange('C:C'));
+  ss.getRange('K:K').moveTo(ss.getRange('D:D'));
+  ss.getRange('J:J').moveTo(ss.getRange('E:E'));
+  ss.getRange('M:M').moveTo(ss.getRange('F:F'));
+  ss.getRange('F1').getCell(1, 1).setValue('Grade');
+  ss.getActiveSheet().deleteColumns(10, 6);
+  ss.getRange('C1').getCell(1, 1).setValue('Last name');
+  ss.getRange('D1').getCell(1, 1).setValue('First name');
+  ss.getRange('H1').getCell(1, 1).setValue('Coun.Lastname');
+  ss.getRange('I1').getCell(1, 1).setValue('Coun.Firstname');
+  /* Logger.log('brows=' + ss.getRange('B:B').getNumRows());
+  Logger.log('ajrows=' + ss.getRange('A:J').getNumRows()); */
+  ss.getRange('A:A').offset(1, 0, ss.getRange('B:B').getNumRows() - 1).insertCheckboxes();
+  ss.getActiveSheet().autoResizeColumns(1, 10);
+
+  ss.getRange('A:J').offset(1, 0, ss.getRange('A:J').getNumRows() - 1).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
+  ss.getRange('A1').activate();
+  ss.getActiveSheet().setFrozenRows(1);
+  ss.moveActiveSheet(0); /* Make Time Slot worksheet first */
+
+  /* Create By Student Name worksheet from Time Slot worksheet */
+  ss.duplicateActiveSheet();
+  ss.getActiveSheet().setName('By Student Name');
+  ss.getActiveSheet().deleteColumns(1, 1); /* check in not needed */
+  ss.getActiveSheet().deleteColumns(9, 9); /* timestamp not needed */
+  ss.getActiveSheet().insertColumnsBefore(1, 2);
+  ss.getRange('D:D').moveTo(ss.getRange('A:A'));
+  ss.getRange('E:E').moveTo(ss.getRange('B:B'));
+  ss.getActiveSheet().deleteColumns(4, 2);
+  ss.getActiveSheet().autoResizeColumns(1, 3);
+  ss.getRange('A:J').offset(1, 0, ss.getRange('A:I').getNumRows() - 1).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
+  ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
+  ss.getRange('A1').activate();
+};
+
+/* This function sets the checkin value in the response spreadsheet so they are preserved */
+function updateCheckin(e) {
+  var range = e.range;
+  var sheet = range.getSheet();
+  /* return if not checking a box on Time Slot worksheet */
+  /*   Logger.log("col=" + range.getColumn()); */
+  if (sheet.getName() !== 'By Time Slot' || range.getColumn() !== 1) {
+    return;
+  }
+  /*   Logger.log("correct sheet/col"); */
+  var row = range.getRow();
+  var timestamp = sheet.getRange(row, 10).getValue();
+  /* Logger.log('timestamp=' + timestamp); */
+
+  /* return if checking a box without a time slot */
+  if (timestamp == "") {
+    /*     Logger.log('no timestamp'); */
+    return;
+  }
+  var checkIn = sheet.getRange(row, 1).getValue();
+  /* get timestamp into a format that can be found on reservation spreadsheet */
+  /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
+  var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/dd/yyyy H:mm:ss:SSS');
+  /* var timefmt = Utilities.formatDate(timestamp,'GMT-6','m"/"d"/"yyyy" "h":"mm":"ss":"000'); This format, used in setNumberFormat, doesn't work */
+
+  /*   Logger.log('tostring=' + timestamp.toString()); */
+ /*  Logger.log('timefmt=' + timefmt); */
+  var ss = SpreadsheetApp.getActive();
+  var responses_ws = ss.getSheetByName("Form Responses");
+  /*  var cell = responses_ws.getRange(11, 1).getCell(1, 1);
+   Logger.log("ts on res ss=" + cell.getValue()); */
+
+  /*  var tf = responses_ws.createTextFinder("17:55"); not found; wrong timezone*/
+  /* var tf = responses_ws.createTextFinder("5/20/2024 18:55:22:863"); */ /* This works so it is searching on how it is displayed in the spreadsheet; */
+  var tf = responses_ws.createTextFinder(timefmt).matchEntireCell(true);
+
+  var firstOccurrence = tf.findNext();
+  if (firstOccurrence == null) {
+    Logger.log("not found");
+    /*   don't return--so I'll get notified of failures */
+  }
+  row = firstOccurrence.getRow();
+  /*   Logger.log("row=" + row); */
+  var range = responses_ws.getRange(row, 10);
+  range.getCell(1, 1).setValue(checkIn);
 }
 
 /* Form Questions -- logged by identifyQuestions
