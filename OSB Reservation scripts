@@ -36,18 +36,24 @@ function updateTimeSlots(e) {
   }
   else { /* triggered by spreadsheet edit */
     sheet = e.range.getSheet();
+    var col = e.range.getColumn();
     /* return if not changing Time Slot worksheet */
-    if (sheet.getName() !== 'TimeSlots') {
-     /*  Logger.log("timeslot sheet not changed"); */
+    if (sheet.getName() !== 'TimeSlots' || (col !== 1 && col !== 3)) {
+      Logger.log("timeslot value not changed");
       return;
     }
+    if (col == 1) {
+      var row = e.range.getRow();
+      sheet.getRange(row, 2).setFormula("=TO_TEXT(" + "A" + row + ")");
+    }
   }
+
   var optionsArray = sheet.getRange("B2:C").getValues()
   /* Logger.log(optionsArray) */
   var filteredOptionArray = optionsArray.filter(row => row[1] > 0)
   /* Logger.log(filteredOptionArray) */
   var optionsList = filteredOptionArray.map(row => row[0])
-  Logger.log(optionsList)
+  /* Logger.log(optionsList) */
   var form = FormApp.openById(RESFORM)
   var timeSlotQuestion = form.getItemById("2077309311")
   timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList)
@@ -171,7 +177,7 @@ function updateCheckin(e) {
   /* var timefmt = Utilities.formatDate(timestamp,'GMT-6','m"/"d"/"yyyy" "h":"mm":"ss":"000'); This format, used in setNumberFormat, doesn't work */
 
   /*   Logger.log('tostring=' + timestamp.toString()); */
- /*  Logger.log('timefmt=' + timefmt); */
+  /*  Logger.log('timefmt=' + timefmt); */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
   /*  var cell = responses_ws.getRange(11, 1).getCell(1, 1);
@@ -188,8 +194,21 @@ function updateCheckin(e) {
   }
   row = firstOccurrence.getRow();
   /*   Logger.log("row=" + row); */
-  var range = responses_ws.getRange(row, 10);
-  range.getCell(1, 1).setValue(checkIn);
+/*   var range = responses_ws.getRange(row, 10);
+  range.getCell(1, 1).setValue(checkIn); */
+  responses_ws.getRange(row, 10).setValue(checkIn);
+}
+
+function protectTimeSlot() {
+  var ss = SpreadsheetApp.getActive();
+  ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
+  var range = ss.getRange('B:J');
+  var protection = range.protect();
+  protection.addEditor('techsupport@al-cos.org');
+  protection.removeEditors(protection.getEditors()); /* odd that this works ... why doesn't it remove the editor just added? */
+  for (const editor of protection.getEditors()) {
+    console.log(editor.getEmail());
+  }
 }
 
 /* Form Questions -- logged by identifyQuestions
