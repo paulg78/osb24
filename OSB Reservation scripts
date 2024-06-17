@@ -39,7 +39,7 @@ function updateTimeSlots(e) {
     var col = e.range.getColumn();
     /* return if not changing Time Slot worksheet */
     if (sheet.getName() !== 'TimeSlots' || (col !== 1 && col !== 3)) {
-      Logger.log("timeslot value not changed");
+      /* Logger.log("timeslot value not changed"); */
       return;
     }
     if (col == 1) {
@@ -62,8 +62,15 @@ function updateTimeSlots(e) {
 /* This updates the available count and then calls updateTimeSlots to update the list of available time slots */
 /* there is a trigger to call this function when the form is submitted */
 function updateQuota(e) {
-  /* Logger.log(e.namedValues['Time Slot']) */
+  /*   Logger.log('range=' + JSON.stringify(e.range))
+    Logger.log('nvJSON=' + JSON.stringify(e.namedValues));
+    Logger.log('values=' + JSON.stringify(e.values));
+     Logger.log('authMode=' + JSON.stringify(e.authMode)); */
   var ts = e.namedValues['Time Slot']
+  if (ts == "") { /* This is an edit with no change to time slot so can't update quota */
+    /*  Logger.log("edit form submitted with no change to timeslot"); */
+    return;
+  }
   var ws = SpreadsheetApp.getActiveSpreadsheet()
   var options_ws = ws.getSheetByName("TimeSlots")
   var tf = options_ws.createTextFinder(ts)
@@ -176,7 +183,7 @@ function updateCheckin(e) {
   var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/dd/yyyy H:mm:ss:SSS');
   /* var timefmt = Utilities.formatDate(timestamp,'GMT-6','m"/"d"/"yyyy" "h":"mm":"ss":"000'); This format, used in setNumberFormat, doesn't work */
 
-  /*   Logger.log('tostring=' + timestamp.toString()); */
+  /*  Logger.log('tostring=' + timestamp.toString()); */
   /*  Logger.log('timefmt=' + timefmt); */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
@@ -190,12 +197,10 @@ function updateCheckin(e) {
   var firstOccurrence = tf.findNext();
   if (firstOccurrence == null) {
     Logger.log("not found");
-    /*   don't return--so I'll get notified of failures */
+    /*   don't return--so I'll get notified of failures when getRow fails */
   }
   row = firstOccurrence.getRow();
   /*   Logger.log("row=" + row); */
-/*   var range = responses_ws.getRange(row, 10);
-  range.getCell(1, 1).setValue(checkIn); */
   responses_ws.getRange(row, 10).setValue(checkIn);
 }
 
