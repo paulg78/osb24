@@ -65,7 +65,7 @@ function updateQuota(e) {
   /*   Logger.log('range=' + JSON.stringify(e.range))
     Logger.log('nvJSON=' + JSON.stringify(e.namedValues));
     Logger.log('values=' + JSON.stringify(e.values));
-     Logger.log('authMode=' + JSON.stringify(e.authMode)); */
+    Logger.log('authMode=' + JSON.stringify(e.authMode)); */
   var ts = e.namedValues['Time Slot']
   if (ts == "") { /* This is an edit with no change to time slot so can't update quota */
     /*  Logger.log("edit form submitted with no change to timeslot"); */
@@ -101,61 +101,79 @@ function formatforCheckin() {
   var responses_ws = ss.getSheetByName("Form Responses");
   responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
 
-  /* Delete Time Slot and Student Names worksheets if present */
+  /* Delete Time Slot, Student Names, and school counts worksheets if present */
   if (ss.getSheetByName('By Time Slot') != null) {
-    ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
-    ss.deleteActiveSheet();
+    ss.deleteSheet(ss.getSheetByName('By Time Slot'))
   }
   if (ss.getSheetByName('By Student Name') != null) {
-    ss.setActiveSheet(ss.getSheetByName('By Student Name'), true);
-    ss.deleteActiveSheet();
+    ss.deleteSheet(ss.getSheetByName('By Student Name'))
+  }
+  if (ss.getSheetByName('School Counts') != null) {
+    ss.deleteSheet(ss.getSheetByName('School Counts'))
   }
 
-  /* Create By time slot worksheet */
-  ss.setActiveSheet(ss.getSheetByName('Form Responses'), true);
-  ss.insertSheet('By Time Slot');
+  /* Create By time slot worksheet as first sheet */
+  var ws = ss.insertSheet('By Time Slot', 0);
 
   /* Copy data from Form Responses worksheet */
-  ss.getRange('\'Form Responses\'!A:J').copyTo(ss.getActiveRange(), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
-  /* Re-arrange columns */
-  ss.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
-  ss.getRange('A:A').moveTo(ss.getRange('K:K'));
-  ss.getRange('J:J').moveTo(ss.getRange('A:A'));
-  ss.getActiveSheet().insertColumnsBefore(2, 5);
-  ss.getRange('N:N').moveTo(ss.getRange('B:B'));
-  ss.getRange('L:L').moveTo(ss.getRange('C:C'));
-  ss.getRange('K:K').moveTo(ss.getRange('D:D'));
-  ss.getRange('J:J').moveTo(ss.getRange('E:E'));
-  ss.getRange('M:M').moveTo(ss.getRange('F:F'));
-  ss.getRange('F1').getCell(1, 1).setValue('Grade');
-  ss.getActiveSheet().deleteColumns(10, 6);
-  ss.getRange('C1').getCell(1, 1).setValue('Last name');
-  ss.getRange('D1').getCell(1, 1).setValue('First name');
-  ss.getRange('H1').getCell(1, 1).setValue('Coun.Lastname');
-  ss.getRange('I1').getCell(1, 1).setValue('Coun.Firstname');
-  /* Logger.log('brows=' + ss.getRange('B:B').getNumRows());
-  Logger.log('ajrows=' + ss.getRange('A:J').getNumRows()); */
-  ss.getRange('A:A').offset(1, 0, ss.getRange('B:B').getNumRows() - 1).insertCheckboxes();
-  ss.getActiveSheet().autoResizeColumns(1, 10);
+  responses_ws.getRange('A:J').copyTo(ws.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
 
-  ss.getRange('A:J').offset(1, 0, ss.getRange('A:J').getNumRows() - 1).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
-  ss.getRange('A1').activate();
-  ss.getActiveSheet().setFrozenRows(1);
-  ss.moveActiveSheet(0); /* Make Time Slot worksheet first */
+  /*  Logger.log('lastrow with data=' + ws.getLastRow());
+   Logger.log('lastrow=' + ws.getMaxRows()); */
+  var lastData = ws.getLastRow();
+  ws.deleteRows(lastData + 1, ws.getMaxRows() - lastData);
+
+  /* Re-arrange columns */
+  ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
+  ws.getRange('A:A').moveTo(ws.getRange('K:K'));
+  ws.getRange('J:J').moveTo(ws.getRange('A:A'));
+  ws.insertColumnsBefore(2, 5);
+  ws.getRange('N:N').moveTo(ws.getRange('B:B'));
+  ws.getRange('L:L').moveTo(ws.getRange('C:C'));
+  ws.getRange('K:K').moveTo(ws.getRange('D:D'));
+  ws.getRange('J:J').moveTo(ws.getRange('E:E'));
+  ws.getRange('M:M').moveTo(ws.getRange('F:F'));
+  ws.getRange('F1').getCell(1, 1).setValue('Grade');
+  ws.deleteColumns(10, 6);
+  ws.getRange('C1').getCell(1, 1).setValue('Last name');
+  ws.getRange('D1').getCell(1, 1).setValue('First name');
+  ws.getRange('H1').getCell(1, 1).setValue('Coun.Lastname');
+  ws.getRange('I1').getCell(1, 1).setValue('Coun.Firstname');
+  /* Logger.log('brows=' + ws.getRange('B:B').getNumRows());
+  Logger.log('ajrows=' + ws.getRange('A:J').getNumRows()); */
+  ws.getRange('A:A').offset(1, 0, ws.getRange('B:B').getNumRows() - 1).insertCheckboxes();
+  ws.autoResizeColumns(1, 10);
+
+  ws.getRange('A:J').offset(1, 0, ws.getRange('A:J').getNumRows() - 1).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
+  ws.setFrozenRows(1);
 
   /* Create By Student Name worksheet from Time Slot worksheet */
-  ss.duplicateActiveSheet();
-  ss.getActiveSheet().setName('By Student Name');
-  ss.getActiveSheet().deleteColumns(1, 1); /* check in not needed */
-  ss.getActiveSheet().deleteColumns(9, 9); /* timestamp not needed */
-  ss.getActiveSheet().insertColumnsBefore(1, 2);
-  ss.getRange('D:D').moveTo(ss.getRange('A:A'));
-  ss.getRange('E:E').moveTo(ss.getRange('B:B'));
-  ss.getActiveSheet().deleteColumns(4, 2);
-  ss.getActiveSheet().autoResizeColumns(1, 3);
-  ss.getRange('A:J').offset(1, 0, ss.getRange('A:I').getNumRows() - 1).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
-  ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
-  ss.getRange('A1').activate();
+  ws = ss.duplicateActiveSheet();
+  ws.setName('By Student Name');
+  ws.deleteColumns(1, 1); /* check in not needed */
+  ws.deleteColumns(9, 9); /* timestamp not needed */
+  ws.insertColumnsBefore(1, 2);
+  ws.getRange('D:D').moveTo(ws.getRange('A:A'));
+  ws.getRange('E:E').moveTo(ws.getRange('B:B'));
+  ws.deleteColumns(4, 2);
+  ws.autoResizeColumns(1, 3);
+  ws.getRange('A:J').offset(1, 0, ws.getRange('A:I').getNumRows() - 1).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
+
+  /* Create count by school pivot table */
+  var sourceData = ws.getRange('D:D');
+  ws = ss.insertSheet('School Counts', 2);
+  ws.setHiddenGridlines(true);
+  var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
+  var pivotGroup = pivotTable.addRowGroup(4);
+  var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotValue.setDisplayName('NBR Res.');
+  ws.setFrozenRows(1);
+  pivotGroup.sortDescending()
+    .sortBy(pivotTable.getPivotValues()[0], []);
+  ws.autoResizeColumns(1, 2);
+
+  /* make time slot sheet active */
+  ss.getSheetByName('By Time Slot').activate();
 };
 
 /* This function sets the checkin value in the response spreadsheet so they are preserved */
@@ -196,8 +214,9 @@ function updateCheckin(e) {
 
   var firstOccurrence = tf.findNext();
   if (firstOccurrence == null) {
-    Logger.log("not found");
+    Logger.log("Can't update checkin--Student not found");
     /*   don't return--so I'll get notified of failures when getRow fails */
+    /* Check-in fails if there is an edit to a student after the checkin worksheet is created (because the student gets a new timestamp, which is not reflected in the by timeslot worksheet until it is re-created */
   }
   row = firstOccurrence.getRow();
   /*   Logger.log("row=" + row); */
