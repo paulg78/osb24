@@ -82,19 +82,17 @@ function updateQuota(e) {
   var row = slot.getRow()
   /* Logger.log(row) */
   var range = options_ws.getRange(row, 3)
-  var cell = range.getCell(1, 1);
-  var avail = cell.getValue();
+  var avail = range.getValue();
   if (avail > 0) {
-    cell.setValue(avail - 1)
+    range.setValue(avail - 1)
     if (avail == 1) {
       /* Logger.log("calling updateTimeSlots") */
       updateTimeSlots()
     }
   }
-  /* Logger.log(cell.getValue()); */
 }
 
-/* This function creates 2 worksheets, one for looking up students by time slot and the other for looking up students by name */
+/* This function creates 3 worksheets, one for looking up students by time slot, one for looking up students by name, and 1 for checking reservations vs. quota by school */
 function formatforCheckin() {
   /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
   var ss = SpreadsheetApp.getActive();
@@ -133,12 +131,12 @@ function formatforCheckin() {
   ws.getRange('K:K').moveTo(ws.getRange('D:D'));
   ws.getRange('J:J').moveTo(ws.getRange('E:E'));
   ws.getRange('M:M').moveTo(ws.getRange('F:F'));
-  ws.getRange('F1').getCell(1, 1).setValue('Grade');
+  ws.getRange('F1').setValue('Grade');
   ws.deleteColumns(10, 6);
-  ws.getRange('C1').getCell(1, 1).setValue('Last name');
-  ws.getRange('D1').getCell(1, 1).setValue('First name');
-  ws.getRange('H1').getCell(1, 1).setValue('Coun.Lastname');
-  ws.getRange('I1').getCell(1, 1).setValue('Coun.Firstname');
+  ws.getRange('C1').setValue('Last name');
+  ws.getRange('D1').setValue('First name');
+  ws.getRange('H1').setValue('Coun.Lastname');
+  ws.getRange('I1').setValue('Coun.Firstname');
   /* Logger.log('brows=' + ws.getRange('B:B').getNumRows());
   Logger.log('ajrows=' + ws.getRange('A:J').getNumRows()); */
   ws.getRange('A:A').offset(1, 0, ws.getRange('B:B').getNumRows() - 1).insertCheckboxes();
@@ -151,7 +149,7 @@ function formatforCheckin() {
   ws = ss.duplicateActiveSheet();
   ws.setName('By Student Name');
   ws.deleteColumns(1, 1); /* check in not needed */
-  ws.deleteColumns(9, 9); /* timestamp not needed */
+  ws.deleteColumns(9, 1); /* timestamp not needed */
   ws.insertColumnsBefore(1, 2);
   ws.getRange('D:D').moveTo(ws.getRange('A:A'));
   ws.getRange('E:E').moveTo(ws.getRange('B:B'));
@@ -168,9 +166,15 @@ function formatforCheckin() {
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   ws.setFrozenRows(1);
-  pivotGroup.sortDescending()
-    .sortBy(pivotTable.getPivotValues()[0], []);
-  ws.autoResizeColumns(1, 2);
+  pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []);
+  ws.getRange('C1').setValue('Quota');
+  ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,true)');
+  ws.getRange('D1').setValue('Over?');
+  ws.getRange('D2').setFormula('=if(B2>C2,"Over","")');
+  ws.getRange('C2:D2').copyTo(ws.getRange(3, 3, ws.getLastRow() - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  /*  Logger.log('lastrow with data=' + ws.getLastRow()); */
+
+  ws.autoResizeColumns(1, 4);
 
   /* make time slot sheet active */
   ss.getSheetByName('By Time Slot').activate();
@@ -198,18 +202,11 @@ function updateCheckin(e) {
   var checkIn = sheet.getRange(row, 1).getValue();
   /* get timestamp into a format that can be found on reservation spreadsheet */
   /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
-  var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/dd/yyyy H:mm:ss:SSS');
-  /* var timefmt = Utilities.formatDate(timestamp,'GMT-6','m"/"d"/"yyyy" "h":"mm":"ss":"000'); This format, used in setNumberFormat, doesn't work */
-
-  /*  Logger.log('tostring=' + timestamp.toString()); */
-  /*  Logger.log('timefmt=' + timefmt); */
+  var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/d/yyyy H:mm:ss:SSS');
+  /*   Logger.log('tostring=' + timestamp.toString());
+    Logger.log('timefmt=' + timefmt); */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
-  /*  var cell = responses_ws.getRange(11, 1).getCell(1, 1);
-   Logger.log("ts on res ss=" + cell.getValue()); */
-
-  /*  var tf = responses_ws.createTextFinder("17:55"); not found; wrong timezone*/
-  /* var tf = responses_ws.createTextFinder("5/20/2024 18:55:22:863"); */ /* This works so it is searching on how it is displayed in the spreadsheet; */
   var tf = responses_ws.createTextFinder(timefmt).matchEntireCell(true);
 
   var firstOccurrence = tf.findNext();
