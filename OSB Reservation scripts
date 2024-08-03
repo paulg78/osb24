@@ -27,7 +27,7 @@ function updateSchools() {
   schoolQuestion.asListItem().setChoiceValues(optionsList)
 }
 
-/* This function updates the list of available time slots */
+/* This function updates the list of available time slots on the reservation form */
 /* there is a trigger to call this function when there is any edit to the spreadsheet */
 function updateTimeSlots(e) {
   var sheet;
@@ -73,8 +73,7 @@ function updateQuota(e) {
   }
   var ws = SpreadsheetApp.getActiveSpreadsheet()
   var options_ws = ws.getSheetByName("TimeSlots")
-  var tf = options_ws.createTextFinder(ts)
-  var slot = tf.findNext()
+  var slot = options_ws.createTextFinder(ts).findNext();
   if (slot == null) {
     Logger.log('time slot not found')
     /* don't return -- so it will fail and I'll get notification */
