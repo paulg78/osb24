@@ -1,14 +1,66 @@
 const RESFORM = "1SfYwt1dFT2KnzOM1T1iZHNelfhCPh2Qz0C4s7cU4oko"
 
-/* This function is only used to get the question IDs */
-function identifyQuestions() {
-  var form = FormApp.openById(RESFORM)
-  var questions = form.getItems()
-  questions.forEach(question => {
-    Logger.log(question.getTitle())
-    Logger.log(question.getType())
-    Logger.log(question.getId().toString())
-  })
+/* This function fixes the available counts, which can be inaccurate when a counselor 
+edits a reservation and changes the student's time slot */
+function checkAvailable() {
+  var ss = SpreadsheetApp.getActive();
+  /* Delete Timeslot Counts worksheets if present */
+  if (ss.getSheetByName('Timeslot Counts') != null) {
+    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  }
+  /* Create count by time slot pivot table */
+  var sourceData = ss.getSheetByName("By Student Name").getRange('C:C');
+  ws = ss.insertSheet('Timeslot Counts', 3);
+
+  var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
+  var pivotGroup = pivotTable.addRowGroup(3);
+  var pivotValue = pivotTable.addPivotValue(3, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotValue.setDisplayName('NBR Res.');
+  ws.setFrozenRows(1);
+  /* pivotGroup.sortDescending().sortBy(pivotTable.getRow(0), []); */
+  ws.getRange('C1').setValue('Avail');
+  ws.getRange('C2').setFormula('=arrayFormula(VLOOKUP(A2,TimeSlots!B:D,{2,3},false))');
+  ws.getRange('D1').setValue('Quota');
+  ws.getRange('E1').setValue('Correct Avail');
+  ws.getRange('E2').setFormula('=IFERROR(D2-B2,"")');
+  ws.getRange('F1').setValue('Delta');
+  ws.getRange('F2').setFormula('=iferror(if(C2<>E2, C2-E2,""),"")');
+  ws.getRange('C2:F2').copyTo(ws.getRange(3, 3, ws.getLastRow() - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  /*  Logger.log('lastrow with data=' + ws.getLastRow()); */
+  ws.autoResizeColumns(1, 6);
+}
+
+function fixAvailable() {
+  var ss = SpreadsheetApp.getActive();
+  var ws = ss.getSheetByName('Timeslot Counts');
+  var ts = ss.getSheetByName('TimeSlots');
+  if (ws == null) {
+    return;
+  }
+  var updateTS = false;
+  for (var i = 2; i < ws.getLastRow(); i++) {
+    var delta = ws.getRange(i, 6).getValue();
+    if (delta != 0) {
+      var slot = ts.createTextFinder(ws.getRange(i, 1).getValue()).findNext();
+      if (slot == null) {
+        Logger.log('time slot not found')
+      }
+      else {
+        var availcell = ts.getRange(slot.getRow(), 3);
+        var from = availcell.getValue();
+        var to = from - delta;
+        availcell.setValue(to);
+        Logger.log("changed avail for " + slot.getValue() + " from " + from + " to " + to);
+        if (from == 0 || to == 0) {
+          updateTS = true;
+        }
+      }
+    }
+  }
+  if (updateTS) {
+    Logger.log("calling updatetimeslots");
+    updateTimeSlots()
+  }
 }
 
 /* This function needs to be run when there is a change to the school list on the spreadsheet */
@@ -98,6 +150,10 @@ function formatforCheckin() {
   var responses_ws = ss.getSheetByName("Form Responses");
   responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
 
+  /* Delete Timeslot Counts worksheet if present because it references deleted sheets */
+  if (ss.getSheetByName('Timeslot Counts') != null) {
+    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  }
   /* Delete Time Slot, Student Names, and school counts worksheets if present */
   if (ss.getSheetByName('By Time Slot') != null) {
     ss.deleteSheet(ss.getSheetByName('By Time Slot'))
@@ -159,7 +215,6 @@ function formatforCheckin() {
   /* Create count by school pivot table */
   var sourceData = ws.getRange('D:D');
   ws = ss.insertSheet('School Counts', 2);
-  ws.setHiddenGridlines(true);
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
   var pivotGroup = pivotTable.addRowGroup(4);
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
@@ -212,16 +267,15 @@ function updateCheckin(e) {
   responses_ws.getRange(row, 10).setValue(checkIn);
 }
 
-function protectTimeSlot() {
-  var ss = SpreadsheetApp.getActive();
-  ss.setActiveSheet(ss.getSheetByName('By Time Slot'), true);
-  var range = ss.getRange('B:J');
-  var protection = range.protect();
-  protection.addEditor('techsupport@al-cos.org');
-  protection.removeEditors(protection.getEditors()); /* odd that this works ... why doesn't it remove the editor just added? */
-  for (const editor of protection.getEditors()) {
-    console.log(editor.getEmail());
-  }
+/* This function is only used to get the question IDs */
+function identifyQuestions() {
+  var form = FormApp.openById(RESFORM)
+  var questions = form.getItems()
+  questions.forEach(question => {
+    Logger.log(question.getTitle())
+    Logger.log(question.getType())
+    Logger.log(question.getId().toString())
+  })
 }
 
 /* Form Questions -- logged by identifyQuestions
