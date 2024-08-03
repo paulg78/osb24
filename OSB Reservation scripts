@@ -194,11 +194,6 @@ function updateCheckin(e) {
   var timestamp = sheet.getRange(row, 10).getValue();
   /* Logger.log('timestamp=' + timestamp); */
 
-  /* return if checking a box without a time slot */
-  if (timestamp == "") {
-    /*     Logger.log('no timestamp'); */
-    return;
-  }
   var checkIn = sheet.getRange(row, 1).getValue();
   /* get timestamp into a format that can be found on reservation spreadsheet */
   /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
@@ -207,9 +202,7 @@ function updateCheckin(e) {
     Logger.log('timefmt=' + timefmt); */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
-  var tf = responses_ws.createTextFinder(timefmt).matchEntireCell(true);
-
-  var firstOccurrence = tf.findNext();
+  var firstOccurrence = responses_ws.createTextFinder(timefmt).matchEntireCell(true).findNext();
   if (firstOccurrence == null) {
     Logger.log("Can't update checkin--Student not found");
     /*   don't return--so I'll get notified of failures when getRow fails */
