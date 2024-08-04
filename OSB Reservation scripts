@@ -13,11 +13,10 @@ function checkAvailable() {
   ws = ss.insertSheet('Timeslot Counts', 3);
 
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
-  var pivotGroup = pivotTable.addRowGroup(3);
+  pivotTable.addRowGroup(3);
   var pivotValue = pivotTable.addPivotValue(3, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   ws.setFrozenRows(1);
-  /* pivotGroup.sortDescending().sortBy(pivotTable.getRow(0), []); */
   ws.getRange('C1').setValue('Avail');
   ws.getRange('C2').setFormula('=arrayFormula(VLOOKUP(A2,TimeSlots!B:D,{2,3},false))');
   ws.getRange('D1').setValue('Quota');
@@ -33,15 +32,17 @@ function checkAvailable() {
 function fixAvailable() {
   var ss = SpreadsheetApp.getActive();
   var ws = ss.getSheetByName('Timeslot Counts');
-  var ts = ss.getSheetByName('TimeSlots');
   if (ws == null) {
+    Logger.log('You need to run checkAvailable before running fixAvailable');
     return;
   }
+  var ts = ss.getSheetByName('TimeSlots');
   var updateTS = false;
   for (var i = 2; i < ws.getLastRow(); i++) {
     var delta = ws.getRange(i, 6).getValue();
     if (delta != 0) {
-      var slot = ts.createTextFinder(ws.getRange(i, 1).getValue()).findNext();
+      var searchText = ws.getRange(i, 1).getValue();
+      var slot = ts.createTextFinder(searchText).findNext();
       if (slot == null) {
         Logger.log('time slot not found')
       }
@@ -50,7 +51,7 @@ function fixAvailable() {
         var from = availcell.getValue();
         var to = from - delta;
         availcell.setValue(to);
-        Logger.log("changed avail for " + slot.getValue() + " from " + from + " to " + to);
+        Logger.log("changed avail for " + searchText + " from " + from + " to " + to);
         if (from == 0 || to == 0) {
           updateTS = true;
         }
@@ -88,10 +89,14 @@ function updateTimeSlots(e) {
   }
   else { /* triggered by spreadsheet edit */
     sheet = e.range.getSheet();
+    /* return if not changing Time Slot worksheet col 1 or 3 */
+    if (sheet.getName() !== 'TimeSlots') {
+      /* Logger.log("timeslot sheet not changed"); */
+      return;
+    }
     var col = e.range.getColumn();
-    /* return if not changing Time Slot worksheet */
-    if (sheet.getName() !== 'TimeSlots' || (col !== 1 && col !== 3)) {
-      /* Logger.log("timeslot value not changed"); */
+    if (col !== 1 && col !== 3) {
+      /* Logger.log("timeslot avail not changed"); */
       return;
     }
     if (col == 1) {
