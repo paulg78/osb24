@@ -31,30 +31,28 @@ function checkAvailable() {
 
 function fixAvailable() {
   var ss = SpreadsheetApp.getActive();
-  var ws = ss.getSheetByName('Timeslot Counts');
-  if (ws == null) {
+  var tc = ss.getSheetByName('Timeslot Counts');
+  if (tc == null) {
     Logger.log('You need to run checkAvailable before running fixAvailable');
     return;
   }
   var ts = ss.getSheetByName('TimeSlots');
   var updateTS = false;
-  for (var i = 2; i < ws.getLastRow(); i++) {
-    var delta = ws.getRange(i, 6).getValue();
-    if (delta != 0) {
-      var searchText = ws.getRange(i, 1).getValue();
-      var slot = ts.createTextFinder(searchText).findNext();
-      if (slot == null) {
-        Logger.log('time slot not found')
-      }
-      else {
-        var availcell = ts.getRange(slot.getRow(), 3);
-        var from = availcell.getValue();
-        var to = from - delta;
-        availcell.setValue(to);
-        Logger.log("changed avail for " + searchText + " from " + from + " to " + to);
-        if (from == 0 || to == 0) {
-          updateTS = true;
-        }
+  for (var i = 2; i < ts.getLastRow(); i++) {
+    var searchText = ts.getRange(i, 2).getValue();
+    var avail = ts.getRange(i, 3).getValue();
+    var slot = tc.createTextFinder(searchText).findNext();
+    if (slot == null) { /* no reservations for this time slot */
+      var avail2 = ts.getRange(i, 4).getValue(); /* quota */
+    }
+    else {
+      var avail2 = tc.getRange(slot.getRow(), 5).getValue();
+    }
+    if (avail != avail2) {
+      ts.getRange(i, 3).setValue(avail2);
+      Logger.log("changed avail for " + searchText + " from " + avail + " to " + avail2);
+      if (avail == 0 || avail2 == 0) {
+        updateTS = true;
       }
     }
   }
@@ -225,11 +223,11 @@ function formatforCheckin() {
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   ws.setFrozenRows(1);
-  pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []);
+  pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []); /* sort by nbr reservations */
   ws.getRange('C1').setValue('Quota');
-  ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,true)');
+  ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
   ws.getRange('D1').setValue('Over?');
-  ws.getRange('D2').setFormula('=if(B2>C2,"Over","")');
+  ws.getRange('D2').setFormula('=if(B2>C2,B2-C2,"")');
   ws.getRange('C2:D2').copyTo(ws.getRange(3, 3, ws.getLastRow() - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
   /*  Logger.log('lastrow with data=' + ws.getLastRow()); */
 
