@@ -1,0 +1,58 @@
+function makeMMsheet() {
+  var ss = SpreadsheetApp.getActive();
+  var s1 = ss.getSheetByName('sheet1');
+  if (ss.getSheetByName('mm')) {
+    ss.deleteSheet(ss.getSheetByName('mm'))
+  }
+  var mm = ss.insertSheet('mm', 0);
+  var lastRow = s1.getLastRow(); /* unreliable -- doesn't get last row with data */
+  /* Logger.log("lastRow=" + lastRow); */
+  var mmrow = [
+    ["school", "name", "email", "quota"]
+  ];
+  mm.getRange("A1:D1").setValues(mmrow);
+  var i = 2;
+  var j = 2;
+  var school = s1.getRange(i, 1).getValue();
+  while (school) {
+    Logger.log(school);
+    var quota = s1.getRange(i, 6).getValue();
+    var name = s1.getRange(i, 2).getValue();
+    var email = s1.getRange(i, 3).getValue().toLowerCase();
+    if (!name) {
+      name = getName(email)
+    }
+    mm.getRange(j, 1).setValue(school);
+    mm.getRange(j, 2).setValue(name);
+    mm.getRange(j, 3).setValue(email);
+    mm.getRange(j, 4).setValue(quota);
+    var email = s1.getRange(i, 5).getValue().toLowerCase();
+    if (email) {
+      j++;
+
+      var name = s1.getRange(i, 4).getValue();
+      if (!name) {
+        name = getName(email)
+      }
+      mm.getRange(j, 1).setValue(school);
+      mm.getRange(j, 2).setValue(name);
+      mm.getRange(j, 3).setValue(email);
+      mm.getRange(j, 4).setValue(quota);
+    }
+    j++;
+    i++;
+    var school = s1.getRange(i, 1).getValue();
+  }
+  mm.autoResizeColumns(1, 4);
+}
+
+function getName(email) {
+  const name = email.split("@")[0];
+  var nameParts = name.split(".");
+  if (nameParts.length == 2) {
+    var fname = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1);
+    var lname = nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1);
+    return fname + " " + lname
+  }
+  else { return nameParts[0] }
+}
