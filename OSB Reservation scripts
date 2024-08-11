@@ -26,7 +26,7 @@ function checkAvailable() {
   ws.getRange('F2').setFormula('=iferror(if(C2<>E2, C2-E2,""),"")');
   var lastRow = ws.getLastRow();
   /* Logger.log("lastRow=" + lastRow); */
-  ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 3), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
   ws.autoResizeColumns(1, 6);
 }
 
