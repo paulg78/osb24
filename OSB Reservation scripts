@@ -1,11 +1,16 @@
 const RESFORM = "1SfYwt1dFT2KnzOM1T1iZHNelfhCPh2Qz0C4s7cU4oko"
 
-/* This function fixes the available counts, which can be inaccurate when a counselor 
-edits a reservation and changes the student's time slot */
+/* triggered to run daily */
+function dailyCleanup() {
+  removePastTimeSlots();
+  checkAvailable();
+  fixAvailable();
+}
+/* This function fixes the available counts, which can be inaccurate when a counselor edits a reservation and changes the student's time slot */
 function checkAvailable() {
   var ss = SpreadsheetApp.getActive();
   /* Delete Timeslot Counts worksheets if present */
-  if (ss.getSheetByName('Timeslot Counts') != null) {
+  if (ss.getSheetByName('Timeslot Counts')) {
     ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
   }
   /* Create count by time slot pivot table */
@@ -87,7 +92,7 @@ function updateSchools() {
 /* there is a trigger to call this function when there is any edit to the spreadsheet */
 function updateTimeSlots(e) {
   var sheet;
-  if (e == null) { /* Called by updateQuota */
+  if (e == null) { /* Called by updateQuota or removePastTimeSlots */
     sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
   }
   else { /* triggered by spreadsheet edit */
@@ -125,9 +130,10 @@ function updateTimeSlots(e) {
   timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList)
 }
 
-/* This function removes time slots from the spreadsheet for days that have passed. It is triggered to run daily */
+/* This function removes time slots from the spreadsheet for days that have passed. */
 function removePastTimeSlots() {
   var today = new Date();
+  var updateTS = false;
   Logger.log("today=" + today);
   var ts = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
   /* var ts = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("tstest"); */
@@ -137,8 +143,11 @@ function removePastTimeSlots() {
     row.deleteCells(SpreadsheetApp.Dimension.ROWS);
     /* when cells on row 2 are deleted cells on row 3 move up to row 2 */
     var row = ts.getRange(2, 1, 1, 4);
+    updateTS = true;
   }
-  updateTimeSlots();
+  if (updateTS) {
+    updateTimeSlots();
+  }
 }
 
 /* This updates the available count and then calls updateTimeSlots to update the list of available time slots */
@@ -180,18 +189,17 @@ function formatforCheckin() {
   var responses_ws = ss.getSheetByName("Form Responses");
   responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
 
-  /* Delete Timeslot Counts worksheet if present because it references deleted sheets */
-  if (ss.getSheetByName('Timeslot Counts') != null) {
+  /* Delete worksheets to be recreated, if present */
+  if (ss.getSheetByName('Timeslot Counts')) {
     ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
   }
-  /* Delete Time Slot, Student Names, and school counts worksheets if present */
-  if (ss.getSheetByName('By Time Slot') != null) {
+   if (ss.getSheetByName('By Time Slot')) {
     ss.deleteSheet(ss.getSheetByName('By Time Slot'))
   }
-  if (ss.getSheetByName('By Student Name') != null) {
+  if (ss.getSheetByName('By Student Name')) {
     ss.deleteSheet(ss.getSheetByName('By Student Name'))
   }
-  if (ss.getSheetByName('School Counts') != null) {
+  if (ss.getSheetByName('School Counts')) {
     ss.deleteSheet(ss.getSheetByName('School Counts'))
   }
 
