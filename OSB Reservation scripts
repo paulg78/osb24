@@ -32,6 +32,7 @@ function checkAvailable() {
   var lastRow = ws.getLastRow();
   /* Logger.log("lastRow=" + lastRow); */
   ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 3), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  ws.deleteRows(lastRow + 1, ws.getMaxRows() - lastRow);
   ws.autoResizeColumns(1, 6);
 }
 
@@ -46,6 +47,7 @@ function fixAvailable() {
   var updateTS = false;
   var lastRow = ts.getLastRow(); /* unreliable -- doesn't get last row with data */
   /* Logger.log("lastRow=" + lastRow); */
+  var searchRange = tc.getRange("A:A");
   for (var i = 2; i < lastRow + 1; i++) {
     var searchText = ts.getRange(i, 2).getValue();
     if (!searchText) {
@@ -53,7 +55,7 @@ function fixAvailable() {
     }
     /*  Logger.log("i=" + i + ", searchText=" + searchText); */
     var avail = ts.getRange(i, 3).getValue();
-    var slot = tc.createTextFinder(searchText).findNext();
+    var slot = searchRange.createTextFinder(searchText).findNext();
     if (slot == null) { /* no reservations for this time slot */
       var avail2 = ts.getRange(i, 4).getValue(); /* quota */
     }
@@ -193,7 +195,7 @@ function formatforCheckin() {
   if (ss.getSheetByName('Timeslot Counts')) {
     ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
   }
-   if (ss.getSheetByName('By Time Slot')) {
+  if (ss.getSheetByName('By Time Slot')) {
     ss.deleteSheet(ss.getSheetByName('By Time Slot'))
   }
   if (ss.getSheetByName('By Student Name')) {
@@ -260,14 +262,37 @@ function formatforCheckin() {
   var pivotGroup = pivotTable.addRowGroup(4);
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
+  var lastCnt = ws.getLastRow();
+
+  /* add non-reserved schools */
+  ws.getRange('F1').setValue('No Reservations');
+  var schools = ss.getSheetByName('Schools');
+  var lastSchool = schools.getLastRow();
+  /*   Logger.log('lastSchool=' + lastSchool); */
+  var searchRange = ws.getRange(2, 1, lastCnt - 2, 1);
+  /*   Logger.log("searchRange="+searchRange.getValues());
+    Logger.log('lastCnt='+lastCnt); */
+  var j = 2;
+  for (var i = 2; i < lastSchool + 1; i++) {
+    var school = schools.getRange(i, 1).getValue();
+    /*     Logger.log('school='+school); */
+    var found = searchRange.createTextFinder(school).findNext();
+    if (!found) {
+      /*       Logger.log("school=" + school + " not found"); */
+      ws.getRange(j, 6).setValue(school);
+      j++;
+    }
+  }
+  /* end of add non-reserved schools */
+
   ws.setFrozenRows(1);
   pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []); /* sort by nbr reservations */
   ws.getRange('C1').setValue('Quota');
   ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
   ws.getRange('D1').setValue('Over?');
   ws.getRange('D2').setFormula('=if(B2>C2,B2-C2,"")');
-  ws.getRange('C2:D2').copyTo(ws.getRange(2, 3, ws.getLastRow() - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
-  /*  Logger.log('lastrow with data=' + ws.getLastRow()); */
+  ws.getRange('C2:D2').copyTo(ws.getRange(2, 3, lastCnt - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  /*  Logger.log('lastrow with data=' + lastCnt); */
   ws.autoResizeColumns(1, 4);
 
   /* make time slot sheet active */
