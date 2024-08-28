@@ -1,0 +1,440 @@
+const RESFORM = "1SfYwt1dFT2KnzOM1T1iZHNelfhCPh2Qz0C4s7cU4oko"
+
+/* triggered to run daily */
+function dailyCleanup() {
+  removePastTimeSlots();
+  checkAvailable();
+  fixAvailable();
+}
+/* This function fixes the available counts, which can be inaccurate when a counselor edits a reservation and changes the student's time slot */
+function checkAvailable() {
+  var ss = SpreadsheetApp.getActive();
+  /* Delete Timeslot Counts worksheets if present */
+  if (ss.getSheetByName('Timeslot Counts')) {
+    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  }
+  /* Create count by time slot pivot table */
+  var sourceData = ss.getSheetByName("By Student Name").getRange('C:C');
+  ws = ss.insertSheet('Timeslot Counts', 3);
+
+  var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
+  pivotTable.addRowGroup(3);
+  var pivotValue = pivotTable.addPivotValue(3, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotValue.setDisplayName('NBR Res.');
+  ws.setFrozenRows(1);
+  ws.getRange('C1').setValue('Avail');
+  ws.getRange('C2').setFormula('=arrayFormula(VLOOKUP(A2,TimeSlots!B:D,{2,3},false))');
+  ws.getRange('D1').setValue('Quota');
+  ws.getRange('E1').setValue('Correct Avail');
+  ws.getRange('E2').setFormula('=IFERROR(D2-B2,"")');
+  ws.getRange('F1').setValue('Delta');
+  ws.getRange('F2').setFormula('=iferror(if(C2<>E2, C2-E2,""),"")');
+  var lastRow = ws.getLastRow();
+  /* Logger.log("lastRow=" + lastRow); */
+  ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 3), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  ws.deleteRows(lastRow + 1, ws.getMaxRows() - lastRow);
+  ws.autoResizeColumns(1, 6);
+}
+
+function fixAvailable() {
+  var ss = SpreadsheetApp.getActive();
+  var tc = ss.getSheetByName('Timeslot Counts');
+  if (tc == null) {
+    Logger.log('You need to run checkAvailable before running fixAvailable');
+    return;
+  }
+  var ts = ss.getSheetByName('TimeSlots');
+  var updateTS = false;
+  var lastRow = ts.getLastRow(); /* unreliable -- doesn't get last row with data */
+  /* Logger.log("lastRow=" + lastRow); */
+  var searchRange = tc.getRange("A:A");
+  for (var i = 2; i < lastRow + 1; i++) {
+    var searchText = ts.getRange(i, 2).getValue();
+    if (!searchText) {
+      return
+    }
+    /*  Logger.log("i=" + i + ", searchText=" + searchText); */
+    var avail = ts.getRange(i, 3).getValue();
+    var slot = searchRange.createTextFinder(searchText).findNext();
+    if (slot == null) { /* no reservations for this time slot */
+      var avail2 = ts.getRange(i, 4).getValue(); /* quota */
+    }
+    else {
+      var avail2 = tc.getRange(slot.getRow(), 5).getValue();
+    }
+    if (avail != avail2) {
+      ts.getRange(i, 3).setValue(avail2);
+      Logger.log("changed avail for " + searchText + " from " + avail + " to " + avail2);
+      if (avail == 0 || avail2 == 0) {
+        updateTS = true;
+      }
+    }
+  }
+  if (updateTS) {
+    Logger.log("calling updatetimeslots");
+    updateTimeSlots()
+  }
+}
+
+/* This function needs to be run when there is a change to the school list on the spreadsheet */
+/* If we want it to run automatically, need a trigger to run it when there is an edit to the spreadsheet */
+function updateSchools() {
+  var ws = SpreadsheetApp.getActiveSpreadsheet();
+  var options_ws = ws.getSheetByName("Schools");
+  var lastRow = options_ws.getLastRow();
+  /*   Logger.log("lastRow=" + lastRow); */
+  var optionsArray = options_ws.getRange(2, 1, lastRow - 1).getValues();
+  /*  Logger.log(optionsArray) */
+  var form = FormApp.openById(RESFORM);
+  var schoolQuestion = form.getItemById("325120643");
+  schoolQuestion.asListItem().setChoiceValues(optionsArray);
+}
+
+/* This function updates the list of available time slots on the reservation form */
+/* there is a trigger to call this function when there is any edit to the spreadsheet */
+function updateTimeSlots(e) {
+  var sheet;
+  if (e == null) { /* Called by updateQuota or removePastTimeSlots */
+    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
+  }
+  else { /* triggered by spreadsheet edit */
+    sheet = e.range.getSheet();
+    /* return if not changing Time Slot worksheet col 1 or 3 */
+    if (sheet.getName() !== 'TimeSlots') {
+      /* Logger.log("timeslot sheet not changed"); */
+      return;
+    }
+    var col = e.range.getColumn();
+    if (col !== 1 && col !== 3) {
+      /* Logger.log("timeslot avail not changed"); */
+      return;
+    }
+    if (col == 1) {
+      var row = e.range.getRow();
+      sheet.getRange(row, 2).setFormula("=TO_TEXT(" + "A" + row + ")");
+    }
+  }
+  var optionsArray = sheet.getRange(2, 2, sheet.getLastRow() - 1, 2).getValues();
+  /*   Logger.log(optionsArray) */
+  /* A slightly faster way than filter/map method below */
+  var optionsList = [];
+  optionsArray.forEach(function (row) {
+    if (row[1] > 0) {
+      optionsList.push(row[0]);
+    }
+  })
+  /*   var filteredOptionArray = optionsArray.filter(row => row[1] > 0); */
+  /*  Logger.log(filteredOptionArray) */
+  /* var optionsList = filteredOptionArray.map(row => row[0]); */
+  /*  Logger.log(optionsList) */
+  var form = FormApp.openById(RESFORM)
+  var timeSlotQuestion = form.getItemById("2077309311")
+  timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList)
+}
+
+/* This function removes time slots from the spreadsheet for days that have passed. */
+function removePastTimeSlots() {
+  var today = new Date();
+  var updateTS = false;
+  Logger.log("today=" + today);
+  var ts = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
+  /* var ts = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("tstest"); */
+  var row = ts.getRange(2, 1, 1, 4);
+  while (today > new Date(row.getValue())) {
+    Logger.log("expired=" + new Date(row.getValue()));
+    row.deleteCells(SpreadsheetApp.Dimension.ROWS);
+    /* when cells on row 2 are deleted cells on row 3 move up to row 2 */
+    var row = ts.getRange(2, 1, 1, 4);
+    updateTS = true;
+  }
+  if (updateTS) {
+    updateTimeSlots();
+  }
+}
+
+/* This updates the available count and then calls updateTimeSlots to update the list of available time slots */
+/* there is a trigger to call this function when the form is submitted */
+function updateQuota(e) {
+  /*   Logger.log('range=' + JSON.stringify(e.range))
+    Logger.log('nvJSON=' + JSON.stringify(e.namedValues));
+    Logger.log('values=' + JSON.stringify(e.values));
+    Logger.log('authMode=' + JSON.stringify(e.authMode)); */
+  var ts = e.namedValues['Time Slot']
+  if (ts == "") { /* This is an edit with no change to time slot so can't update quota */
+    /*  Logger.log("edit form submitted with no change to timeslot"); */
+    return;
+  }
+  var ws = SpreadsheetApp.getActiveSpreadsheet();
+  var options_ws = ws.getSheetByName("TimeSlots");
+  var slot = options_ws.createTextFinder(ts).findNext();
+  if (slot == null) {
+    Logger.log('time slot not found')
+    /* don't return -- so it will fail and I'll get notification */
+  }
+  var row = slot.getRow();
+  /* Logger.log("row=" + row); */
+  var range = options_ws.getRange(row, 3);
+  var avail = range.getValue();
+  if (avail > 0) {
+    range.setValue(avail - 1)
+    if (avail == 1) {
+      /* Logger.log("calling updateTimeSlots") */
+      updateTimeSlots()
+    }
+  }
+}
+
+function noRes() {
+  var ss = SpreadsheetApp.getActive();
+  /* add non-reserved schools */
+  var cntws = ss.getSheetByName('School Counts');
+  cntws.getRange('F1').setValue('No Reservations');
+  var schoolws = ss.getSheetByName('Schools');
+  var nbrSchools = schoolws.getLastRow() - 1;
+  Logger.log('nbrSchools=' + nbrSchools);
+  var nbrRes = cntws.getLastRow() - 1;
+  Logger.log('nbrRes=' + nbrRes);
+
+  var resSchools = new Array(nbrRes);
+  var noResSchools = new Array(nbrSchools - nbrRes);
+  var schools = new Array(nbrSchools);
+  resSchools = cntws.getRange(2, 1, nbrRes, 1).getValues();
+  resSchools[nbrRes - 1] = ["ZZZ"];
+  /* Logger.log('resSchools=' + resSchools); */
+  schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
+  /* Logger.log('schools=' + schools); */
+  var i = 0;
+  var j = 0;
+  var k = 0;
+  while (i < nbrSchools) {
+    var school = schools[i][0];
+    var resSchool = resSchools[j][0];
+    /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
+    if (school == resSchool) {
+      j++;
+      i++;
+    }
+    else if (school > resSchool) {
+      j++; /* skip something not in school list */
+    }
+    else {
+      noResSchools[k] = schools[i];
+      i++;
+      k++;
+    }
+  }
+  cntws.getRange(2, 6, k, 1).setValues(noResSchools);
+  Logger.log('noResSchools=' + noResSchools);
+}
+
+/* This function creates 3 worksheets, one for looking up students by time slot, one for looking up students by name, and 1 for checking reservations vs. quota by school */
+function formatforCheckin() {
+  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
+  var ss = SpreadsheetApp.getActive();
+  var responses_ws = ss.getSheetByName("Form Responses");
+  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
+
+  /* Delete worksheets to be recreated, if present */
+  if (ss.getSheetByName('Timeslot Counts')) {
+    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  }
+  if (ss.getSheetByName('By Time Slot')) {
+    ss.deleteSheet(ss.getSheetByName('By Time Slot'))
+  }
+  if (ss.getSheetByName('By Student Name')) {
+    ss.deleteSheet(ss.getSheetByName('By Student Name'))
+  }
+  if (ss.getSheetByName('School Counts')) {
+    ss.deleteSheet(ss.getSheetByName('School Counts'))
+  }
+
+  /* Create By time slot worksheet as first sheet */
+  var ws = ss.insertSheet('By Time Slot', 0);
+
+  /* Copy data from Form Responses worksheet */
+  responses_ws.getRange('A:J').copyTo(ws.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+
+  var lastData = ws.getLastRow();
+  /* Logger.log('lastrow with data=' + lastData);
+  Logger.log('lastrow=' + ws.getMaxRows()); */
+  if (lastData < 2) { /* no data rows */
+    return
+  }
+  ws.deleteRows(lastData + 1, ws.getMaxRows() - lastData);
+
+  /* Re-arrange columns */
+  ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
+  ws.getRange('A:A').moveTo(ws.getRange('K:K'));
+  ws.getRange('J:J').moveTo(ws.getRange('A:A'));
+  ws.insertColumnsBefore(2, 5);
+  ws.getRange('N:N').moveTo(ws.getRange('B:B'));
+  ws.getRange('L:L').moveTo(ws.getRange('C:C'));
+  ws.getRange('K:K').moveTo(ws.getRange('D:D'));
+  ws.getRange('J:J').moveTo(ws.getRange('E:E'));
+  ws.getRange('M:M').moveTo(ws.getRange('F:F'));
+  ws.getRange('F1').setValue('Grade');
+  ws.deleteColumns(10, 6);
+  ws.getRange('C1').setValue('Last name');
+  ws.getRange('D1').setValue('First name');
+  ws.getRange('H1').setValue('Coun.Lastname');
+  ws.getRange('I1').setValue('Coun.Firstname');
+  /* Logger.log('brows=' + ws.getRange('B:B').getNumRows());
+  Logger.log('ajrows=' + ws.getRange('A:J').getNumRows()); */
+
+  ws.getRange(2, 1, lastData - 1, 1).insertCheckboxes();
+  ws.autoResizeColumns(1, 10);
+  ws.getRange(2, 1, lastData - 1, 10).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
+  ws.setFrozenRows(1);
+
+  /* Create By Student Name worksheet from Time Slot worksheet */
+  ws = ss.duplicateActiveSheet();
+  ws.setName('By Student Name');
+  ws.deleteColumns(1, 1); /* check in not needed */
+  ws.deleteColumns(9, 1); /* timestamp not needed */
+  ws.insertColumnsBefore(1, 2);
+  ws.getRange('D:D').moveTo(ws.getRange('A:A'));
+  ws.getRange('E:E').moveTo(ws.getRange('B:B'));
+  ws.deleteColumns(4, 2);
+  ws.autoResizeColumns(1, 8);
+  ws.getRange(2, 1, lastData - 1, 8).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
+
+  /* Create count by school pivot table */
+  var sourceData = ws.getRange('D:D');
+  ws = ss.insertSheet('School Counts', 2);
+  var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
+  var pivotGroup = pivotTable.addRowGroup(4);
+  var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotValue.setDisplayName('NBR Res.');
+  var lastCnt = ws.getLastRow();
+
+  ws.setFrozenRows(1);
+  pivotGroup.sortAscending();
+  /*   pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []); */ /* sort by nbr reservations */
+  ws.getRange('C1').setValue('Quota');
+  ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
+  ws.getRange('D1').setValue('Over?');
+  ws.getRange('D2').setFormula('=if(B2=C2,"", B2-C2)');
+  ws.getRange('C2:D2').copyTo(ws.getRange(3, 3, lastCnt - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  var rules = ws.getConditionalFormatRules();
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .setRanges([ws.getRange(2,4,lastCnt-2,1)])
+    .whenNumberGreaterThan(0)
+    .setBackground('#E06666')
+    .build());
+  ws.setConditionalFormatRules(rules);
+
+  /* add non-reserved schools */
+  ws.getRange('F1').setValue('No Reservations');
+  var schoolws = ss.getSheetByName('Schools');
+  var nbrSchools = schoolws.getLastRow() - 1;
+  /* Logger.log('nbrSchools=' + nbrSchools); */
+  var nbrRes = lastCnt - 1;
+  /* Logger.log('nbrRes=' + nbrRes); */
+
+  var resSchools = new Array(nbrRes);
+  var noResSchools = new Array(nbrSchools - nbrRes);
+  var schools = new Array(nbrSchools);
+  resSchools = ws.getRange(2, 1, nbrRes, 1).getValues();
+  resSchools[nbrRes - 1] = ["ZZZ"];
+  /* Logger.log('resSchools=' + resSchools); */
+  schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
+  /* Logger.log('schools=' + schools); */
+  var i = 0;
+  var j = 0;
+  var k = 0;
+  while (i < nbrSchools) {
+    var school = schools[i][0];
+    var resSchool = resSchools[j][0];
+    /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
+    if (school == resSchool) {
+      j++;
+      i++;
+    }
+    else if (school > resSchool) {
+      j++; /* skip something not in school list */
+    }
+    else {
+      noResSchools[k] = schools[i];
+      i++;
+      k++;
+    }
+  }
+  ws.getRange(2, 6, k, 1).setValues(noResSchools);
+  /* Logger.log('noResSchools=' + noResSchools); */
+  /* end of add non-reserved schools */
+  ws.autoResizeColumns(1, 6);
+
+  /* make time slot sheet active */
+  ss.getSheetByName('By Time Slot').activate();
+};
+
+/* This function sets the checkin value in the response spreadsheet so they are preserved */
+function updateCheckin(e) {
+  var range = e.range;
+  var sheet = range.getSheet();
+  /* return if not checking a box on Time Slot worksheet */
+  /*   Logger.log("col=" + range.getColumn()); */
+  if (sheet.getName() !== 'By Time Slot' || range.getColumn() !== 1) {
+    return;
+  }
+  /*   Logger.log("correct sheet/col"); */
+  var row = range.getRow();
+  var timestamp = sheet.getRange(row, 10).getValue();
+  /* Logger.log('timestamp=' + timestamp); */
+
+  var checkIn = sheet.getRange(row, 1).getValue();
+  /* get timestamp into a format that can be found on reservation spreadsheet */
+  /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
+  var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/d/yyyy H:mm:ss:SSS');
+  /*   Logger.log('tostring=' + timestamp.toString());
+    Logger.log('timefmt=' + timefmt); */
+  var ss = SpreadsheetApp.getActive();
+  var responses_ws = ss.getSheetByName("Form Responses");
+  var firstOccurrence = responses_ws.createTextFinder(timefmt).matchEntireCell(true).findNext();
+  if (firstOccurrence == null) {
+    Logger.log("Can't update checkin--Student not found");
+    /*   don't return--so I'll get notified of failures when getRow fails */
+    /* Check-in fails if there is an edit to a student after the checkin worksheet is created (because the student gets a new timestamp, which is not reflected in the by timeslot worksheet until it is re-created */
+  }
+  row = firstOccurrence.getRow();
+  /*   Logger.log("row=" + row); */
+  responses_ws.getRange(row, 10).setValue(checkIn);
+}
+
+/* This function is only used to get the question IDs */
+function identifyQuestions() {
+  var form = FormApp.openById(RESFORM)
+  var questions = form.getItems()
+  questions.forEach(question => {
+    Logger.log(question.getTitle())
+    Logger.log(question.getType())
+    Logger.log(question.getId().toString())
+  })
+}
+
+/* Form Questions -- logged by identifyQuestions
+Counselor/Liaison First Name
+TEXT
+187723064
+Counselor/Liaison Last Name
+TEXT
+383280843
+School
+LIST
+325120643
+Reservation
+PAGE_BREAK
+1534288597
+Student First Name
+TEXT
+780686565
+Student Last Name
+TEXT
+1474091195
+Student Grade
+LIST
+916278863
+Time Slot
+MULTIPLE_CHOICE
+2077309311
+ */
