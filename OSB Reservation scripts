@@ -235,8 +235,6 @@ function formatforCheckin() {
   ws.getRange('D1').setValue('First name');
   ws.getRange('H1').setValue('Coun.Lastname');
   ws.getRange('I1').setValue('Coun.Firstname');
-  /* Logger.log('brows=' + ws.getRange('B:B').getNumRows());
-  Logger.log('ajrows=' + ws.getRange('A:J').getNumRows()); */
 
   ws.getRange(2, 1, lastData - 1, 1).insertCheckboxes();
   ws.autoResizeColumns(1, 10);
@@ -264,36 +262,60 @@ function formatforCheckin() {
   pivotValue.setDisplayName('NBR Res.');
   var lastCnt = ws.getLastRow();
 
-  /* add non-reserved schools */
-  ws.getRange('F1').setValue('No Reservations');
-  var schools = ss.getSheetByName('Schools');
-  var lastSchool = schools.getLastRow();
-  /*   Logger.log('lastSchool=' + lastSchool); */
-  var searchRange = ws.getRange(2, 1, lastCnt - 2, 1);
-  /*   Logger.log("searchRange="+searchRange.getValues());
-    Logger.log('lastCnt='+lastCnt); */
-  var j = 2;
-  for (var i = 2; i < lastSchool + 1; i++) {
-    var school = schools.getRange(i, 1).getValue();
-    /*     Logger.log('school='+school); */
-    var found = searchRange.createTextFinder(school).findNext();
-    if (!found) {
-      /*       Logger.log("school=" + school + " not found"); */
-      ws.getRange(j, 6).setValue(school);
-      j++;
-    }
-  }
-  /* end of add non-reserved schools */
-
   ws.setFrozenRows(1);
-  pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []); /* sort by nbr reservations */
+  pivotGroup.sortAscending();
   ws.getRange('C1').setValue('Quota');
   ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
   ws.getRange('D1').setValue('Over?');
-  ws.getRange('D2').setFormula('=if(B2>C2,B2-C2,"")');
-  ws.getRange('C2:D2').copyTo(ws.getRange(2, 3, lastCnt - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
-  /*  Logger.log('lastrow with data=' + lastCnt); */
-  ws.autoResizeColumns(1, 4);
+  ws.getRange('D2').setFormula('=if(B2=C2,"", B2-C2)');
+  ws.getRange('C2:D2').copyTo(ws.getRange(3, 3, lastCnt - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  var rules = ws.getConditionalFormatRules();
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .setRanges([ws.getRange(2, 4, lastCnt - 2, 1)])
+    .whenNumberGreaterThan(0)
+    .setBackground('#E06666')
+    .build());
+  ws.setConditionalFormatRules(rules);
+
+  /* add non-reserved schools */
+  ws.getRange('F1').setValue('No Reservations');
+  var schoolws = ss.getSheetByName('Schools');
+  var nbrSchools = schoolws.getLastRow() - 1;
+  /* Logger.log('nbrSchools=' + nbrSchools); */
+  var nbrRes = lastCnt - 1;
+  /* Logger.log('nbrRes=' + nbrRes); */
+
+  var resSchools = new Array(nbrRes);
+  var noResSchools = new Array(nbrSchools - nbrRes);
+  var schools = new Array(nbrSchools);
+  resSchools = ws.getRange(2, 1, nbrRes, 1).getValues();
+  resSchools[nbrRes - 1] = ["ZZZ"];
+  /* Logger.log('resSchools=' + resSchools); */
+  schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
+  /* Logger.log('schools=' + schools); */
+  var i = 0;
+  var j = 0;
+  var k = 0;
+  while (i < nbrSchools) {
+    var school = schools[i][0];
+    var resSchool = resSchools[j][0];
+    /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
+    if (school == resSchool) {
+      j++;
+      i++;
+    }
+    else if (school > resSchool) {
+      j++; /* skip something not in school list */
+    }
+    else {
+      noResSchools[k] = schools[i];
+      i++;
+      k++;
+    }
+  }
+  ws.getRange(2, 6, k, 1).setValues(noResSchools);
+  /* Logger.log('noResSchools=' + noResSchools); */
+  ws.autoResizeColumns(1, 6);
 
   /* make time slot sheet active */
   ss.getSheetByName('By Time Slot').activate();
