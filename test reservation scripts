@@ -91,29 +91,8 @@ function updateSchools() {
 }
 
 /* This function updates the list of available time slots on the reservation form */
-/* there is a trigger to call this function when there is any edit to the spreadsheet */
-function updateTimeSlots(e) {
-  var sheet;
-  if (e == null) { /* Called by updateQuota or removePastTimeSlots */
-    sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
-  }
-  else { /* triggered by spreadsheet edit */
-    sheet = e.range.getSheet();
-    /* return if not changing Time Slot worksheet col 1 or 3 */
-    if (sheet.getName() !== 'TimeSlots') {
-      /* Logger.log("timeslot sheet not changed"); */
-      return;
-    }
-    var col = e.range.getColumn();
-    if (col !== 1 && col !== 3) {
-      /* Logger.log("timeslot avail not changed"); */
-      return;
-    }
-    if (col == 1) {
-      var row = e.range.getRow();
-      sheet.getRange(row, 2).setFormula("=TO_TEXT(" + "A" + row + ")");
-    }
-  }
+function updateTimeSlots() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
   var optionsArray = sheet.getRange(2, 2, sheet.getLastRow() - 1, 2).getValues();
   /*   Logger.log(optionsArray) */
   /* A slightly faster way than filter/map method below */
@@ -318,7 +297,7 @@ function formatforCheckin() {
   ws.getRange('C2:D2').copyTo(ws.getRange(2, 3, lastCnt - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
   var rules = ws.getConditionalFormatRules();
   rules.push(SpreadsheetApp.newConditionalFormatRule()
-    .setRanges([ws.getRange(2,4,lastCnt-2,1)])
+    .setRanges([ws.getRange(2, 4, lastCnt - 2, 1)])
     .whenNumberGreaterThan(0)
     .setBackground('#E06666')
     .build());
