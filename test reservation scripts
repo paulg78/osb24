@@ -1,4 +1,4 @@
-const RESFORM = "1SfYwt1dFT2KnzOM1T1iZHNelfhCPh2Qz0C4s7cU4oko"
+const RESFORM = "12yVweD04lKxXwRyC-pPwO2BFwO3JrD3HiBQyr201gC0"
 
 /* triggered to run daily */
 function dailyCleanup() {
@@ -306,6 +306,7 @@ function formatforCheckin() {
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   var lastCnt = ws.getLastRow();
+  Logger.log('lastCnt=' + lastCnt);
 
   ws.setFrozenRows(1);
   pivotGroup.sortAscending();
@@ -314,7 +315,7 @@ function formatforCheckin() {
   ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
   ws.getRange('D1').setValue('Over?');
   ws.getRange('D2').setFormula('=if(B2=C2,"", B2-C2)');
-  ws.getRange('C2:D2').copyTo(ws.getRange(3, 3, lastCnt - 3, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  ws.getRange('C2:D2').copyTo(ws.getRange(2, 3, lastCnt - 2, 2), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
   var rules = ws.getConditionalFormatRules();
   rules.push(SpreadsheetApp.newConditionalFormatRule()
     .setRanges([ws.getRange(2,4,lastCnt-2,1)])
@@ -368,7 +369,7 @@ function formatforCheckin() {
   ss.getSheetByName('By Time Slot').activate();
 };
 
-/* This function sets the checkin value in the response spreadsheet so they are preserved */
+/* This function sets the checkin value in the response spreadsheet so they are preserved; there is a trigger to run this on spreadsheet change */
 function updateCheckin(e) {
   var range = e.range;
   var sheet = range.getSheet();
@@ -382,7 +383,7 @@ function updateCheckin(e) {
   var timestamp = sheet.getRange(row, 10).getValue();
   /* Logger.log('timestamp=' + timestamp); */
 
-  var checkIn = sheet.getRange(row, 1).getValue();
+  /* var checkIn = sheet.getRange(row, 1).getValue(); */
   /* get timestamp into a format that can be found on reservation spreadsheet */
   /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
   var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/d/yyyy H:mm:ss:SSS');
@@ -398,7 +399,7 @@ function updateCheckin(e) {
   }
   row = firstOccurrence.getRow();
   /*   Logger.log("row=" + row); */
-  responses_ws.getRange(row, 10).setValue(checkIn);
+  responses_ws.getRange(row, 10).setValue(e.value);
 }
 
 /* This function is only used to get the question IDs */
