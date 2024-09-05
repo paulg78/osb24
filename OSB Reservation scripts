@@ -14,12 +14,14 @@ function checkAvailable() {
     ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
   }
   /* Create count by time slot pivot table */
-  var sourceData = ss.getSheetByName("By Student Name").getRange('C:C');
-  ws = ss.insertSheet('Timeslot Counts', 3);
+  var ws = ss.insertSheet('Timeslot Counts', 3);
+  var lastResp = ss.getSheetByName("Form Responses").getLastRow();
+  Logger.log('lastResp=' + lastResp);
+  var sourceData = ss.getSheetByName("Form Responses").getRange(1, 9, lastResp);
 
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
-  pivotTable.addRowGroup(3);
-  var pivotValue = pivotTable.addPivotValue(3, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotTable.addRowGroup(9);
+  var pivotValue = pivotTable.addPivotValue(9, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   ws.setFrozenRows(1);
   ws.getRange('C1').setValue('Avail');
@@ -41,19 +43,20 @@ function fixAvailable() {
   var tc = ss.getSheetByName('Timeslot Counts');
   if (tc == null) {
     Logger.log('You need to run checkAvailable before running fixAvailable');
+    SpreadsheetApp.getUi().alert('You need to run checkAvailable before running fixAvailable');
     return;
   }
   var ts = ss.getSheetByName('TimeSlots');
   var updateTS = false;
-  var lastRow = ts.getLastRow(); /* unreliable -- doesn't get last row with data */
-  /* Logger.log("lastRow=" + lastRow); */
+  var lastRow = ts.getLastRow(); /* may be unreliable -- count too high if there is extraneous data */
+  Logger.log("lastRow=" + lastRow);
   var searchRange = tc.getRange("A:A");
   for (var i = 2; i < lastRow + 1; i++) {
     var searchText = ts.getRange(i, 2).getValue();
     if (!searchText) {
-      return
+      return; /* stop if a blank time slot is reached */
     }
-    /*  Logger.log("i=" + i + ", searchText=" + searchText); */
+    /* Logger.log("i=" + i + ", searchText=" + searchText); */
     var avail = ts.getRange(i, 3).getValue();
     var slot = searchRange.createTextFinder(searchText).findNext();
     if (slot == null) { /* no reservations for this time slot */
@@ -61,6 +64,7 @@ function fixAvailable() {
     }
     else {
       var avail2 = tc.getRange(slot.getRow(), 5).getValue();
+      /* Logger.log(searchText + ' found; should have ' + avail2); */
     }
     if (avail != avail2) {
       ts.getRange(i, 3).setValue(avail2);
