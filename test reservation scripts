@@ -14,12 +14,14 @@ function checkAvailable() {
     ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
   }
   /* Create count by time slot pivot table */
-  var sourceData = ss.getSheetByName("By Student Name").getRange('C:C');
-  ws = ss.insertSheet('Timeslot Counts', 3);
+  var ws = ss.insertSheet('Timeslot Counts', 3);
+  var lastResp = ss.getSheetByName("Form Responses").getLastRow();
+  Logger.log('lastResp=' + lastResp);
+  var sourceData = ss.getSheetByName("Form Responses").getRange(1, 9, lastResp);
 
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
-  pivotTable.addRowGroup(3);
-  var pivotValue = pivotTable.addPivotValue(3, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  pivotTable.addRowGroup(9);
+  var pivotValue = pivotTable.addPivotValue(9, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
   pivotValue.setDisplayName('NBR Res.');
   ws.setFrozenRows(1);
   ws.getRange('C1').setValue('Avail');
@@ -41,6 +43,7 @@ function fixAvailable() {
   var tc = ss.getSheetByName('Timeslot Counts');
   if (tc == null) {
     Logger.log('You need to run checkAvailable before running fixAvailable');
+    SpreadsheetApp.getUi().alert('You need to run checkAvailable before running fixAvailable');
     return;
   }
   var ts = ss.getSheetByName('TimeSlots');
@@ -53,7 +56,7 @@ function fixAvailable() {
     if (!searchText) {
       return
     }
-    /*  Logger.log("i=" + i + ", searchText=" + searchText); */
+    /* Logger.log("i=" + i + ", searchText=" + searchText); */
     var avail = ts.getRange(i, 3).getValue();
     var slot = searchRange.createTextFinder(searchText).findNext();
     if (slot == null) { /* no reservations for this time slot */
@@ -61,6 +64,7 @@ function fixAvailable() {
     }
     else {
       var avail2 = tc.getRange(slot.getRow(), 5).getValue();
+      /* Logger.log(searchText + ' found; should have ' + avail2); */
     }
     if (avail != avail2) {
       ts.getRange(i, 3).setValue(avail2);
@@ -138,8 +142,9 @@ function updateQuota(e) {
     Logger.log('nvJSON=' + JSON.stringify(e.namedValues));
     Logger.log('values=' + JSON.stringify(e.values));
     Logger.log('authMode=' + JSON.stringify(e.authMode)); */
-  var ts = e.namedValues['Time Slot']
-  if (ts == "") { /* This is an edit with no change to time slot so can't update quota */
+  var ts = e.namedValues['Time Slot'];
+  Logger.log('ts=' + ts);
+  if (ts == "" || ts == "cancel") { /* This is a cancel or an edit with no change to time slot so can't update quota*/
     /*  Logger.log("edit form submitted with no change to timeslot"); */
     return;
   }
@@ -278,11 +283,16 @@ function formatforCheckin() {
   ws.getRange(2, 1, lastData - 1, 8).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
 
   /* Create count by school pivot table */
-  var sourceData = ws.getRange('D:D');
+  var sourceData = ws.getRange('C:D');
   ws = ss.insertSheet('School Counts', 2);
+  /*  var criteria = SpreadsheetApp.newFilterCriteria().whenTextNotEqualTo("cancel").build(); */
+  /* var pivotTable = ws.getRange('A1').createPivotTable(sourceData).addFilter(3,criteria); */
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
+
   var pivotGroup = pivotTable.addRowGroup(4);
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
+  /* pivotTable.addFilter(3, criteria); */
+
   pivotValue.setDisplayName('NBR Res.');
   var lastCnt = ws.getLastRow();
   Logger.log('lastCnt=' + lastCnt);
