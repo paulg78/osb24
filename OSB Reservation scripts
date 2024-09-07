@@ -96,7 +96,7 @@ function updateSchools() {
 
 /* This function updates the list of available time slots on the reservation form */
 function updateTimeSlots() {
-  var sheet= SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
   var optionsArray = sheet.getRange(2, 2, sheet.getLastRow() - 1, 2).getValues();
   /*   Logger.log(optionsArray) */
   /* A slightly faster way than filter/map method below */
@@ -218,7 +218,7 @@ function formatforCheckin() {
   ws.getRange('D1').setValue('First name');
   ws.getRange('H1').setValue('Coun.Lastname');
   ws.getRange('I1').setValue('Coun.Firstname');
-
+  ws.getRange('A1').setFormula('=COUNTIF(A2:A' + lastData + ',true)');
   ws.getRange(2, 1, lastData - 1, 1).insertCheckboxes();
   ws.autoResizeColumns(1, 10);
   ws.getRange(2, 1, lastData - 1, 10).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
