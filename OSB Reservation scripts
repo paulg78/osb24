@@ -169,28 +169,39 @@ function updateQuota(e) {
 
 /* This function creates 3 worksheets, one for looking up students by time slot, one for looking up students by name, and 1 for checking reservations vs. quota by school */
 function formatforCheckin() {
-  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
-  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
-
+  let respCnt = responses_ws.getLastRow();
+  /*   Logger.log('respCnt=' + respCnt); */
+  let bts_ws = ss.getSheetByName('By Time Slot')
+  if (bts_ws) {
+    let btsCnt = bts_ws.getLastRow();
+    /*     Logger.log('btsCnt=' + btsCnt); */
+    if (btsCnt == respCnt) {
+      Logger.log('worksheets up to date');
+      return; /* no need to recreate worksheets */
+    }
+    ss.deleteSheet(bts_ws);
+  }
   /* Delete worksheets to be recreated, if present */
-  if (ss.getSheetByName('Timeslot Counts')) {
-    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  var ws = ss.getSheetByName('Timeslot Counts');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
-  if (ss.getSheetByName('By Time Slot')) {
-    ss.deleteSheet(ss.getSheetByName('By Time Slot'))
+  var ws = ss.getSheetByName('By Student Name');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
-  if (ss.getSheetByName('By Student Name')) {
-    ss.deleteSheet(ss.getSheetByName('By Student Name'))
-  }
-  if (ss.getSheetByName('School Counts')) {
-    ss.deleteSheet(ss.getSheetByName('School Counts'))
+  var ws = ss.getSheetByName('School Counts');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
 
   /* Create By time slot worksheet as first sheet */
   var ws = ss.insertSheet('By Time Slot', 0);
 
+  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
+  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
   /* Copy data from Form Responses worksheet */
   responses_ws.getRange('A:J').copyTo(ws.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
 
