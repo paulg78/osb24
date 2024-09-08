@@ -16,7 +16,7 @@ function checkAvailable() {
   /* Create count by time slot pivot table */
   var ws = ss.insertSheet('Timeslot Counts', 3);
   var lastResp = ss.getSheetByName("Form Responses").getLastRow();
-  Logger.log('lastResp=' + lastResp);
+  /*   Logger.log('lastResp=' + lastResp); */
   var sourceData = ss.getSheetByName("Form Responses").getRange(1, 9, lastResp);
 
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
@@ -49,14 +49,14 @@ function fixAvailable() {
   var ts = ss.getSheetByName('TimeSlots');
   var updateTS = false;
   var lastRow = ts.getLastRow(); /* may be unreliable -- count too high if there is extraneous data */
-  Logger.log("lastRow=" + lastRow);
+  /*  Logger.log("lastRow=" + lastRow); */
   var searchRange = tc.getRange("A:A");
   for (var i = 2; i < lastRow + 1; i++) {
     var searchText = ts.getRange(i, 2).getValue();
     if (!searchText) {
       return; /* stop if a blank time slot is reached */
     }
-    Logger.log("i=" + i + ", searchText=" + searchText);
+    /* Logger.log("i=" + i + ", searchText=" + searchText); */
     var avail = ts.getRange(i, 3).getValue();
     var slot = searchRange.createTextFinder(searchText).findNext();
     if (slot == null) { /* no reservations for this time slot */
@@ -64,7 +64,7 @@ function fixAvailable() {
     }
     else {
       var avail2 = tc.getRange(slot.getRow(), 5).getValue();
-      Logger.log(searchText + ' found; should have ' + avail2);
+      /* Logger.log(searchText + ' found; should have ' + avail2); */
     }
     if (avail != avail2) {
       ts.getRange(i, 3).setValue(avail2);
@@ -142,9 +142,8 @@ function updateQuota(e) {
     Logger.log('nvJSON=' + JSON.stringify(e.namedValues));
     Logger.log('values=' + JSON.stringify(e.values));
     Logger.log('authMode=' + JSON.stringify(e.authMode)); */
-  var ts = e.namedValues['Time Slot'];
-  /* Logger.log('ts=' + ts); */
-  if (ts == "" || ts == "cancel") { /* This is a cancel or an edit with no change to time slot so can't update quota*/
+  var ts = e.namedValues['Time Slot']
+  if (ts == "") { /* This is an edit with no change to time slot so can't update quota */
     /*  Logger.log("edit form submitted with no change to timeslot"); */
     return;
   }
@@ -168,73 +167,41 @@ function updateQuota(e) {
   }
 }
 
-function noRes() {
-  var ss = SpreadsheetApp.getActive();
-  /* add non-reserved schools */
-  var cntws = ss.getSheetByName('School Counts');
-  cntws.getRange('F1').setValue('No Reservations');
-  var schoolws = ss.getSheetByName('Schools');
-  var nbrSchools = schoolws.getLastRow() - 1;
-  Logger.log('nbrSchools=' + nbrSchools);
-  var nbrRes = cntws.getLastRow() - 1;
-  Logger.log('nbrRes=' + nbrRes);
-
-  var resSchools = new Array(nbrRes);
-  var noResSchools = new Array(nbrSchools - nbrRes);
-  var schools = new Array(nbrSchools);
-  resSchools = cntws.getRange(2, 1, nbrRes, 1).getValues();
-  resSchools[nbrRes - 1] = ["ZZZ"];
-  /* Logger.log('resSchools=' + resSchools); */
-  schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
-  /* Logger.log('schools=' + schools); */
-  var i = 0;
-  var j = 0;
-  var k = 0;
-  while (i < nbrSchools) {
-    var school = schools[i][0];
-    var resSchool = resSchools[j][0];
-    /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
-    if (school == resSchool) {
-      j++;
-      i++;
-    }
-    else if (school > resSchool) {
-      j++; /* skip something not in school list */
-    }
-    else {
-      noResSchools[k] = schools[i];
-      i++;
-      k++;
-    }
-  }
-  cntws.getRange(2, 6, k, 1).setValues(noResSchools);
-  Logger.log('noResSchools=' + noResSchools);
-}
-
 /* This function creates 3 worksheets, one for looking up students by time slot, one for looking up students by name, and 1 for checking reservations vs. quota by school */
 function formatforCheckin() {
-  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
-  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
-
+  let respCnt = responses_ws.getLastRow();
+  /*   Logger.log('respCnt=' + respCnt); */
+  let bts_ws = ss.getSheetByName('By Time Slot')
+  if (bts_ws) {
+    let btsCnt = bts_ws.getLastRow();
+    /*     Logger.log('btsCnt=' + btsCnt); */
+    if (btsCnt == respCnt) {
+      Logger.log('worksheets up to date');
+      return; /* no need to recreate worksheets */
+    }
+    ss.deleteSheet(bts_ws);
+  }
   /* Delete worksheets to be recreated, if present */
-  if (ss.getSheetByName('Timeslot Counts')) {
-    ss.deleteSheet(ss.getSheetByName('Timeslot Counts'))
+  var ws = ss.getSheetByName('Timeslot Counts');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
-  if (ss.getSheetByName('By Time Slot')) {
-    ss.deleteSheet(ss.getSheetByName('By Time Slot'))
+  var ws = ss.getSheetByName('By Student Name');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
-  if (ss.getSheetByName('By Student Name')) {
-    ss.deleteSheet(ss.getSheetByName('By Student Name'))
-  }
-  if (ss.getSheetByName('School Counts')) {
-    ss.deleteSheet(ss.getSheetByName('School Counts'))
+  var ws = ss.getSheetByName('School Counts');
+  if (ws) {
+    ss.deleteSheet(ws);
   }
 
   /* Create By time slot worksheet as first sheet */
   var ws = ss.insertSheet('By Time Slot', 0);
 
+  /* format timestamp in responses worksheet; otherwise new entries will be in wrong format */
+  responses_ws.getRange('A:A').setNumberFormat('m"/"d"/"yyyy" "h":"mm":"ss":"000');
   /* Copy data from Form Responses worksheet */
   responses_ws.getRange('A:J').copyTo(ws.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
 
@@ -262,9 +229,7 @@ function formatforCheckin() {
   ws.getRange('D1').setValue('First name');
   ws.getRange('H1').setValue('Coun.Lastname');
   ws.getRange('I1').setValue('Coun.Firstname');
-  /* Logger.log('brows=' + ws.getRange('B:B').getNumRows());
-  Logger.log('ajrows=' + ws.getRange('A:J').getNumRows()); */
-
+  ws.getRange('A1').setFormula('=COUNTIF(A2:A' + lastData + ',true)');
   ws.getRange(2, 1, lastData - 1, 1).insertCheckboxes();
   ws.autoResizeColumns(1, 10);
   ws.getRange(2, 1, lastData - 1, 10).sort([{ column: 2, ascending: true }, { column: 3, ascending: true }, { column: 4, ascending: true }]);
@@ -283,23 +248,16 @@ function formatforCheckin() {
   ws.getRange(2, 1, lastData - 1, 8).sort([{ column: 1, ascending: true }, { column: 2, ascending: true }]);
 
   /* Create count by school pivot table */
-  var sourceData = ws.getRange('C:D');
+  var sourceData = ws.getRange('D:D');
   ws = ss.insertSheet('School Counts', 2);
-  /*  var criteria = SpreadsheetApp.newFilterCriteria().whenTextNotEqualTo("cancel").build(); */
-  /* var pivotTable = ws.getRange('A1').createPivotTable(sourceData).addFilter(3,criteria); */
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
-
   var pivotGroup = pivotTable.addRowGroup(4);
   var pivotValue = pivotTable.addPivotValue(4, SpreadsheetApp.PivotTableSummarizeFunction.COUNTA);
-  /* pivotTable.addFilter(3, criteria); */
-
   pivotValue.setDisplayName('NBR Res.');
   var lastCnt = ws.getLastRow();
-  Logger.log('lastCnt=' + lastCnt);
 
   ws.setFrozenRows(1);
   pivotGroup.sortAscending();
-  /*   pivotGroup.sortDescending().sortBy(pivotTable.getPivotValues()[0], []); */ /* sort by nbr reservations */
   ws.getRange('C1').setValue('Quota');
   ws.getRange('C2').setFormula('=VLOOKUP(A2,Schools!A:B,2,false)');
   ws.getRange('D1').setValue('Over?');
@@ -351,14 +309,13 @@ function formatforCheckin() {
   }
   ws.getRange(2, 6, k, 1).setValues(noResSchools);
   /* Logger.log('noResSchools=' + noResSchools); */
-  /* end of add non-reserved schools */
   ws.autoResizeColumns(1, 6);
 
   /* make time slot sheet active */
   ss.getSheetByName('By Time Slot').activate();
 };
 
-/* This function sets the checkin value in the response spreadsheet so they are preserved; there is a trigger to run this on spreadsheet change */
+/* This function sets the checkin value in the response spreadsheet so they are preserved; there is a trigger to run this on spreadsheet edit */
 function updateCheckin(e) {
   var range = e.range;
   var sheet = range.getSheet();
@@ -372,7 +329,6 @@ function updateCheckin(e) {
   var timestamp = sheet.getRange(row, 10).getValue();
   /* Logger.log('timestamp=' + timestamp); */
 
-  /* var checkIn = sheet.getRange(row, 1).getValue(); */
   /* get timestamp into a format that can be found on reservation spreadsheet */
   /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
   var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/d/yyyy H:mm:ss:SSS');
