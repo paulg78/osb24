@@ -276,39 +276,45 @@ function formatforCheckin() {
   var schoolws = ss.getSheetByName('Schools');
   var nbrSchools = schoolws.getLastRow() - 1;
   /* Logger.log('nbrSchools=' + nbrSchools); */
-  var nbrRes = lastCnt - 1;
+  var nbrRes = lastCnt - 2;
   /* Logger.log('nbrRes=' + nbrRes); */
 
-  var resSchools = new Array(nbrRes);
-  var noResSchools = new Array(nbrSchools - nbrRes);
-  var schools = new Array(nbrSchools);
-  resSchools = ws.getRange(2, 1, nbrRes, 1).getValues();
-  resSchools[nbrRes - 1] = ["ZZZ"];
-  /* Logger.log('resSchools=' + resSchools); */
-  schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
-  /* Logger.log('schools=' + schools); */
-  var i = 0;
-  var j = 0;
-  var k = 0;
-  while (i < nbrSchools) {
-    var school = schools[i][0];
-    var resSchool = resSchools[j][0];
-    /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
-    if (school == resSchool) {
-      j++;
-      i++;
+  /* the next line compensates for bogus marsha test school reservation and should be removed for next use of this program */
+  nbrSchools++;
+
+  if (nbrRes < nbrSchools) { /* find schools with no reservations */
+    var resSchools = new Array(nbrRes + 1);
+    var noResSchools = new Array(nbrSchools - nbrRes);
+    var schools = new Array(nbrSchools);
+    resSchools = ws.getRange(2, 1, nbrRes, 1).getValues();
+    resSchools[nbrRes] = ["ZZZ"];
+    /* Logger.log('resSchools=' + resSchools); */
+    schools = schoolws.getRange(2, 1, nbrSchools, 1).getValues();
+    /* Logger.log('schools=' + schools); */
+    var i = 0;
+    var j = 0;
+    var k = 0;
+    while (i < nbrSchools) {
+      var school = schools[i][0];
+      var resSchool = resSchools[j][0];
+      /* Logger.log('i=' + i + ',|' + schools[i][0] + '| j=' + j + ', |' + resSchools[j][0] + '|'); */
+      if (school == resSchool) {
+        j++;
+        i++;
+      }
+      else if (school > resSchool) {
+        j++; /* skip something not in school list */
+      }
+      else {
+        /* Logger.log(schools[i] + ' added to no res[' + k + ']') */
+        noResSchools[k] = schools[i];
+        i++;
+        k++;
+      }
     }
-    else if (school > resSchool) {
-      j++; /* skip something not in school list */
-    }
-    else {
-      noResSchools[k] = schools[i];
-      i++;
-      k++;
-    }
+    ws.getRange(2, 6, k, 1).setValues(noResSchools);
+    /* Logger.log('noResSchools=' + noResSchools); */
   }
-  ws.getRange(2, 6, k, 1).setValues(noResSchools);
-  /* Logger.log('noResSchools=' + noResSchools); */
   ws.autoResizeColumns(1, 6);
 
   /* make time slot sheet active */
