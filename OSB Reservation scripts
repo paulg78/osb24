@@ -47,37 +47,34 @@ function fixAvailable() {
     return;
   }
   var ts = ss.getSheetByName('TimeSlots');
-  var updateTS = false;
-  var lastRow = ts.getLastRow(); /* may be unreliable -- count too high if there is extraneous data */
-  Logger.log("lastRow=" + lastRow);
+  var lastRow = ts.getLastRow(); /* will be higher than last timeslot row as timeslots expire and are deleted */
+  /* Logger.log("lastRow=" + lastRow); */
   var searchRange = tc.getRange("A:A");
-  for (var i = 2; i < lastRow + 1; i++) {
+  var i = 2;
+  while (i < lastRow + 1) {
     var searchText = ts.getRange(i, 2).getValue();
-    if (!searchText) {
-      return; /* stop if a blank time slot is reached */
-    }
-    /* Logger.log("i=" + i + ", searchText=" + searchText); */
-    var avail = ts.getRange(i, 3).getValue();
-    var slot = searchRange.createTextFinder(searchText).findNext();
-    if (slot == null) { /* no reservations for this time slot */
-      var avail2 = ts.getRange(i, 4).getValue(); /* quota */
-    }
-    else {
-      var avail2 = tc.getRange(slot.getRow(), 5).getValue();
-      /* Logger.log(searchText + ' found; should have ' + avail2); */
-    }
-    if (avail != avail2) {
-      ts.getRange(i, 3).setValue(avail2);
-      Logger.log("changed avail for " + searchText + " from " + avail + " to " + avail2);
-      if (avail == 0 || avail2 == 0) {
-        updateTS = true;
+    if (searchText) { /* non-blank timeslot */
+      /* Logger.log("i=" + i + ", searchText=" + searchText); */
+      var avail = ts.getRange(i, 3).getValue();
+      var slot = searchRange.createTextFinder(searchText).findNext();
+      if (slot == null) { /* no reservations for this time slot */
+        var avail2 = ts.getRange(i, 4).getValue(); /* quota */
       }
+      else {
+        var avail2 = tc.getRange(slot.getRow(), 5).getValue();
+        /* Logger.log(searchText + ' found; should have ' + avail2); */
+      }
+      if (avail != avail2) {
+        ts.getRange(i, 3).setValue(avail2);
+        Logger.log("changed avail for " + searchText + " from " + avail + " to " + avail2);
+      }
+      i++;
+    }
+    else { /* terminate loop */
+      i = lastRow + 1;
     }
   }
-  if (updateTS) {
-    Logger.log("calling updatetimeslots");
-    updateTimeSlots()
-  }
+  updateTimeSlots()
 }
 
 /* This function needs to be run when there is a change to the school list on the spreadsheet */
@@ -98,21 +95,22 @@ function updateSchools() {
 function updateTimeSlots() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TimeSlots");
   var optionsArray = sheet.getRange(2, 2, sheet.getLastRow() - 1, 2).getValues();
-  /*   Logger.log(optionsArray) */
+  /* Logger.log("last timeslot row=" + sheet.getLastRow()); */
+  /* Logger.log(optionsArray); */
   /* A slightly faster way than filter/map method below */
   var optionsList = [];
   optionsArray.forEach(function (row) {
     if (row[1] > 0) {
       optionsList.push(row[0]);
+      /* Logger.log("adding timeslot=" + row[0]); */
     }
   })
-  /*   var filteredOptionArray = optionsArray.filter(row => row[1] > 0); */
-  /*  Logger.log(filteredOptionArray) */
-  /* var optionsList = filteredOptionArray.map(row => row[0]); */
-  /*  Logger.log(optionsList) */
-  var form = FormApp.openById(RESFORM)
-  var timeSlotQuestion = form.getItemById("2077309311")
-  timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList)
+  var form = FormApp.openById(RESFORM);
+  var timeSlotQuestion = form.getItemById("2077309311");
+  if (optionsList.length == 0) { /* empty options list not allowed */
+    optionsList.push("no time slots available");
+  }
+  timeSlotQuestion.asMultipleChoiceItem().setChoiceValues(optionsList);
 }
 
 /* This function removes time slots from the spreadsheet for days that have passed. */
