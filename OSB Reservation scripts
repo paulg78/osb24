@@ -16,7 +16,7 @@ function checkAvailable() {
   /* Create count by time slot pivot table */
   var ws = ss.insertSheet('Timeslot Counts', 3);
   var lastResp = ss.getSheetByName("Form Responses").getLastRow();
-  Logger.log('lastResp=' + lastResp);
+  /* Logger.log('lastResp=' + lastResp); */
   var sourceData = ss.getSheetByName("Form Responses").getRange(1, 9, lastResp);
 
   var pivotTable = ws.getRange('A1').createPivotTable(sourceData);
@@ -33,7 +33,9 @@ function checkAvailable() {
   ws.getRange('F2').setFormula('=iferror(if(C2<>E2, C2-E2,""),"")');
   var lastRow = ws.getLastRow();
   /* Logger.log("lastRow=" + lastRow); */
-  ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 3), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  if (lastRow > 2) {
+    ws.getRange('C2:F2').copyTo(ws.getRange(2, 3, lastRow - 2, 3), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  }
   ws.deleteRows(lastRow + 1, ws.getMaxRows() - lastRow);
   ws.autoResizeColumns(1, 6);
 }
