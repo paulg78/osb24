@@ -178,7 +178,7 @@ function formatforCheckin() {
     let btsCnt = bts_ws.getLastRow();
     /*     Logger.log('btsCnt=' + btsCnt); */
     if (btsCnt == respCnt) {
-      Logger.log('worksheets up to date');
+      /* Logger.log('worksheets up to date'); */
       return; /* no need to recreate worksheets */
     }
     ss.deleteSheet(bts_ws);
@@ -333,18 +333,18 @@ function updateCheckin(e) {
   /*   Logger.log("correct sheet/col"); */
   var row = range.getRow();
   var timestamp = sheet.getRange(row, 10).getValue();
-  /* Logger.log('timestamp=' + timestamp); */
-
+  /* Logger.log("timezone=" + "GMT-" + timestamp.getTimezoneOffset()/60); */
+  
   /* get timestamp into a format that can be found on reservation spreadsheet */
   /* could write my own date formatter if formatDate proves unreliable; will timezone be an issue? */
-  var timefmt = Utilities.formatDate(timestamp, 'GMT-6', 'M/d/yyyy H:mm:ss:SSS');
-  /*   Logger.log('tostring=' + timestamp.toString());
+  var timefmt = Utilities.formatDate(timestamp, 'GMT-'+ timestamp.getTimezoneOffset()/60, 'M/d/yyyy H:mm:ss:SSS');
+/*  Logger.log('timestamp=' + timestamp.toString());
     Logger.log('timefmt=' + timefmt); */
   var ss = SpreadsheetApp.getActive();
   var responses_ws = ss.getSheetByName("Form Responses");
   var firstOccurrence = responses_ws.createTextFinder(timefmt).matchEntireCell(true).findNext();
   if (firstOccurrence == null) {
-    Logger.log("Can't update checkin--Student not found");
+    Logger.log("Student not found for timestamp=" + timefmt + sheet.getRange(row, 3, 1, 2).getValues());
     /*   don't return--so I'll get notified of failures when getRow fails */
     /* Check-in fails if there is an edit to a student after the checkin worksheet is created (because the student gets a new timestamp, which is not reflected in the by timeslot worksheet until it is re-created */
   }
