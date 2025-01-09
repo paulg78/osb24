@@ -85,9 +85,9 @@ function updateSchools() {
   var ws = SpreadsheetApp.getActiveSpreadsheet();
   var options_ws = ws.getSheetByName("Schools");
   var lastRow = options_ws.getLastRow();
-  /*   Logger.log("lastRow=" + lastRow); */
-  var optionsArray = options_ws.getRange(2, 1, lastRow - 1).getValues();
-  /*  Logger.log(optionsArray) */
+/*   Logger.log("lastRow=" + lastRow); */
+  var optionsArray = options_ws.getRange(2,1,lastRow-1,2).getValues().filter(row => row[1] > 0).map(row => row[0]);
+  /* Logger.log(optionsArray); */
   var form = FormApp.openById(RESFORM);
   var schoolQuestion = form.getItemById("325120643");
   schoolQuestion.asListItem().setChoiceValues(optionsArray);
@@ -99,7 +99,7 @@ function updateTimeSlots() {
   var optionsArray = sheet.getRange(2, 2, sheet.getLastRow() - 1, 2).getValues();
   /* Logger.log("last timeslot row=" + sheet.getLastRow()); */
   /* Logger.log(optionsArray); */
-  /* A slightly faster way than filter/map method below */
+  /* A slightly faster way than filter/map methods */
   var optionsList = [];
   optionsArray.forEach(function (row) {
     if (row[1] > 0) {
@@ -178,7 +178,7 @@ function formatforCheckin() {
     let btsCnt = bts_ws.getLastRow();
     /*     Logger.log('btsCnt=' + btsCnt); */
     if (btsCnt == respCnt) {
-      /* Logger.log('worksheets up to date'); */
+      Logger.log('worksheets up to date');
       return; /* no need to recreate worksheets */
     }
     ss.deleteSheet(bts_ws);
